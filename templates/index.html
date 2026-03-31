@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>宏观经济实时监控面板 | Macro Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { 900: '#0a0f1e', 800: '#111832', 700: '#1a2342' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: linear-gradient(135deg, #0a0f1e 0%, #0d1321 50%, #111832 100%); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .glass-card { background: rgba(17, 24, 50, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(55, 65, 100, 0.3); }
+    .glass-card:hover { border-color: rgba(59, 130, 246, 0.3); box-shadow: 0 0 20px rgba(59, 130, 246, 0.05); }
+    .indicator-card { transition: all 0.3s ease; }
+    .indicator-card:hover { transform: translateY(-2px); }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+    .pulse-dot.connected { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .pulse-dot.disconnected { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .section-title { position: relative; padding-left: 14px; }
+    .section-title::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 70%; border-radius: 2px; background: linear-gradient(180deg, #3b82f6, #8b5cf6); }
+    .skeleton { background: linear-gradient(90deg, rgba(55,65,100,0.3) 25%, rgba(55,65,100,0.5) 50%, rgba(55,65,100,0.3) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .truth-post { border-left: 3px solid transparent; transition: border-color 0.2s; }
+    .truth-post:hover { border-left-color: #3b82f6; }
+    .heatmap-cell { transition: all 0.2s; cursor: default; }
+    .heatmap-cell:hover { transform: scale(1.05); z-index: 10; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(17,24,50,0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(55,65,100,0.6); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(55,65,100,0.9); }
+    .refresh-ring { stroke-dasharray: 113; transition: stroke-dashoffset 1s linear; }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+
+  <!-- Header Bar -->
+  <header class="fixed top-0 left-0 right-0 z-50 glass-card border-b border-gray-700/40" style="background: rgba(10,15,30,0.92); backdrop-filter: blur(16px);">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+      <div class="flex items-center gap-3">
+        <div>
+          <h1 class="text-lg font-bold tracking-wide bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">宏观经济实时监控面板</h1>
+          <p class="text-[10px] text-gray-500 tracking-widest uppercase">Macro Economic Real-Time Dashboard</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-5 text-xs">
+        <!-- Connection Status -->
+        <div class="flex items-center gap-2">
+          <div id="statusDot" class="pulse-dot connected"></div>
+          <span id="statusText" class="text-gray-400">已连接 Connected</span>
+        </div>
+        <!-- Last Refresh -->
+        <div class="text-gray-500">
+          <span>上次刷新: </span>
+          <span id="lastRefreshTime" class="text-gray-300">--:--:--</span>
+        </div>
+        <!-- Countdown -->
+        <div class="flex items-center gap-2">
+          <svg width="20" height="20" class="transform -rotate-90">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(55,65,100,0.4)" stroke-width="2"/>
+            <circle id="countdownRing" cx="10" cy="10" r="8" fill="none" stroke="#3b82f6" stroke-width="2" class="refresh-ring" stroke-linecap="round"/>
+          </svg>
+          <span id="countdownText" class="text-gray-400 tabular-nums w-6 text-center">60</span>
+          <span class="text-gray-600">s</span>
+        </div>
+        <!-- Refresh Button -->
+        <button id="refreshBtn" onclick="manualRefresh()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/20 hover:border-blue-500/40 transition-all text-xs">
+          <svg id="refreshIcon" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-4.36M20 15a9 9 0 01-15.36 4.36"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1600px] mx-auto px-4 pb-12 pt-20">
+    <!-- Error Banner (hidden by default) -->
+    <div id="errorBanner" class="hidden mb-6 p-4 rounded-xl bg-red-900/20 border border-red-500/30 text-red-300 text-sm">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span id="errorText"></span>
+      </div>
+    </div>
+
+    <!-- FRED API Key Warning (shown via Jinja2 if needed) -->
+    {% if not fred_api_configured %}
+    <div id="fredKeyWarning" class="mb-6 p-4 rounded-xl bg-yellow-900/20 border border-yellow-500/30 text-yellow-300 text-sm">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div>
+          <p class="font-semibold mb-1">FRED API Key 未配置 / FRED API Key Not Configured</p>
+          <p class="text-yellow-400/70 text-xs">请在环境变量中设置 <code class="bg-yellow-800/30 px-1.5 py-0.5 rounded">FRED_API_KEY</code> 以启用宏观经济数据获取。可在 <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank" class="underline hover:text-yellow-200">FRED 官网</a> 免费申请。</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Employment Data -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        就业数据 <span class="text-xs text-gray-500 font-normal ml-2">Employment Data</span>
+      </h2>
+      <div id="employmentGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Cards rendered by JS -->
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+      </div>
+    </section>
+
+    <!-- Section 2: Inflation Data -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        通胀数据 <span class="text-xs text-gray-500 font-normal ml-2">Inflation Data</span>
+      </h2>
+      <div id="inflationGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+      </div>
+    </section>
+
+    <!-- Section 3: GDP Growth -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        GDP增长率 <span class="text-xs text-gray-500 font-normal ml-2">GDP Growth Rate</span>
+      </h2>
+      <div id="gdpSection" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="indicator-card glass-card rounded-xl p-4 lg:col-span-1">
+          <div id="gdpCard"><div class="skeleton h-40 rounded-lg"></div></div>
+        </div>
+        <div class="indicator-card glass-card rounded-xl p-4 lg:col-span-2">
+          <div id="gdpChartContainer" class="h-64"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: PMI & Retail Sales -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        PMI / 零售销售 <span class="text-xs text-gray-500 font-normal ml-2">PMI &amp; Retail Sales</span>
+      </h2>
+      <div id="pmiRetailGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+        <div class="skeleton h-48 rounded-xl"></div>
+      </div>
+    </section>
+
+    <!-- Section 5: Fed Watch -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        美联储观察 <span class="text-xs text-gray-500 font-normal ml-2">Fed Watch</span>
+        <a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" class="ml-3 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5 font-normal">CME FedWatch Tool &rarr;</a>
+      </h2>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Current Rate + FOMC Calendar -->
+        <div class="lg:col-span-1 space-y-4">
+          <div id="currentRateCard" class="indicator-card glass-card rounded-xl p-5">
+            <div class="skeleton h-28 rounded-lg"></div>
+          </div>
+          <div id="fomcCalendar" class="indicator-card glass-card rounded-xl p-4 max-h-[400px] overflow-y-auto">
+            <div class="skeleton h-60 rounded-lg"></div>
+          </div>
+        </div>
+        <!-- Rate Probability Heatmap -->
+        <div class="lg:col-span-2">
+          <div id="rateProbabilitySection" class="indicator-card glass-card rounded-xl p-4 overflow-x-auto">
+            <div class="skeleton h-[420px] rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Truth Social -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        特朗普社交媒体动态 <span class="text-xs text-gray-500 font-normal ml-2">Trump Truth Social</span>
+        <a href="https://truthsocial.com/@realDonaldTrump" target="_blank" class="ml-3 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5 font-normal">@realDonaldTrump &rarr;</a>
+      </h2>
+      <div id="truthSocialFeed" class="glass-card rounded-xl p-4 max-h-[500px] overflow-y-auto space-y-3">
+        <div class="skeleton h-20 rounded-lg"></div>
+        <div class="skeleton h-20 rounded-lg"></div>
+        <div class="skeleton h-20 rounded-lg"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800/50 mt-4">
+    <div class="max-w-[1600px] mx-auto px-4 py-6 text-center text-xs text-gray-600 space-y-1">
+      <p>数据来源 / Data Sources: <a href="https://fred.stlouisfed.org/" target="_blank" class="text-gray-500 hover:text-gray-300">FRED (Federal Reserve Economic Data)</a> &middot; <a href="https://www.cmegroup.com/" target="_blank" class="text-gray-500 hover:text-gray-300">CME Group</a> &middot; <a href="https://truthsocial.com/" target="_blank" class="text-gray-500 hover:text-gray-300">Truth Social</a></p>
+      <p class="text-gray-700">宏观经济数据需要配置 FRED API Key 方可获取。部分数据存在延迟，仅供参考，不构成投资建议。</p>
+      <p class="text-gray-700">Macro data requires a FRED API key. Data may be delayed. For reference only; not investment advice.</p>
+    </div>
+  </footer>
+
+  <script>
+    // ============================================================
+    // State & Config
+    // ============================================================
+    const REFRESH_INTERVAL = 60;
+    let countdown = REFRESH_INTERVAL;
+    let countdownTimer = null;
+    let echartsInstances = [];
+    let isConnected = false;
+
+    // ============================================================
+    // Utility Functions
+    // ============================================================
+    function formatNumber(num, decimals = 2) {
+      if (num == null || isNaN(num)) return '--';
+      return Number(num).toFixed(decimals);
+    }
+
+    function formatLargeNumber(num) {
+      if (num == null || isNaN(num)) return '--';
+      if (Math.abs(num) >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+      if (Math.abs(num) >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+      return Number(num).toFixed(1);
+    }
+
+    function formatChange(current, previous) {
+      if (current == null || previous == null || isNaN(current) || isNaN(previous)) return '<span class="text-gray-500">--</span>';
+      const diff = current - previous;
+      const pct = previous !== 0 ? ((diff / Math.abs(previous)) * 100) : 0;
+      const sign = diff >= 0 ? '+' : '';
+      const arrow = diff > 0 ? '&#9650;' : diff < 0 ? '&#9660;' : '&#9644;';
+      const color = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-yellow-400';
+      return `<span class="${color}">${arrow} ${sign}${diff.toFixed(2)} (${sign}${pct.toFixed(1)}%)</span>`;
+    }
+
+    function formatChangeSimple(current, previous, invertColor = false) {
+      if (current == null || previous == null) return '<span class="text-gray-500">--</span>';
+      const diff = current - previous;
+      const sign = diff >= 0 ? '+' : '';
+      let color;
+      if (invertColor) {
+        color = diff > 0 ? 'text-red-400' : diff < 0 ? 'text-green-400' : 'text-yellow-400';
+      } else {
+        color = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-yellow-400';
+      }
+      const arrow = diff > 0 ? '&#9650;' : diff < 0 ? '&#9660;' : '&#9644;';
+      return `<span class="${color}">${arrow} ${sign}${diff.toFixed(2)}</span>`;
+    }
+
+    function timeAgo(dateStr) {
+      if (!dateStr) return '--';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const seconds = Math.floor((now - date) / 1000);
+      if (seconds < 60) return '刚刚 just now';
+      if (seconds < 3600) return `${Math.floor(seconds/60)} 分钟前`;
+      if (seconds < 86400) return `${Math.floor(seconds/3600)} 小时前`;
+      if (seconds < 604800) return `${Math.floor(seconds/86400)} 天前`;
+      return date.toLocaleDateString('zh-CN');
+    }
+
+    function setConnectionStatus(connected) {
+      isConnected = connected;
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      if (connected) {
+        dot.className = 'pulse-dot connected';
+        text.textContent = '已连接 Connected';
+        text.className = 'text-gray-400';
+      } else {
+        dot.className = 'pulse-dot disconnected';
+        text.textContent = '连接失败 Disconnected';
+        text.className = 'text-red-400';
+      }
+    }
+
+    function showError(msg) {
+      const banner = document.getElementById('errorBanner');
+      document.getElementById('errorText').textContent = msg;
+      banner.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('errorBanner').classList.add('hidden');
+    }
+
+    function updateLastRefresh() {
+      const now = new Date();
+      document.getElementById('lastRefreshTime').textContent = now.toLocaleTimeString('zh-CN', {hour12: false});
+    }
+
+    // ============================================================
+    // Data Fetching
+    // ============================================================
+    async function fetchMacroData() {
+      try {
+        const resp = await fetch('/api/macro');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        setConnectionStatus(true);
+        return data;
+      } catch (e) {
+        console.error('Macro fetch error:', e);
+        setConnectionStatus(false);
+        return null;
+      }
+    }
+
+    async function fetchFedWatch() {
+      try {
+        const resp = await fetch('/api/fedwatch');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        return data;
+      } catch (e) {
+        console.error('FedWatch fetch error:', e);
+        return null;
+      }
+    }
+
+    async function fetchTruthSocial() {
+      try {
+        const resp = await fetch('/api/truthsocial');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        return data;
+      } catch (e) {
+        console.error('Truth Social fetch error:', e);
+        return null;
+      }
+    }
+
+    // ============================================================
+    // ECharts Helpers
+    // ============================================================
+    function disposeAllCharts() {
+      echartsInstances.forEach(inst => { try { inst.dispose(); } catch(e) {} });
+      echartsInstances = [];
+    }
+
+    function createSparkline(containerId, data, color = '#3b82f6') {
+      const el = document.getElementById(containerId);
+      if (!el || !data || data.length === 0) return;
+      const chart = echarts.init(el, null, { renderer: 'canvas' });
+      echartsInstances.push(chart);
+      const values = data.map(d => typeof d === 'object' ? d.value : d);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const padding = (max - min) * 0.15 || 1;
+      chart.setOption({
+        grid: { left: 0, right: 0, top: 2, bottom: 2 },
+        xAxis: { type: 'category', show: false, data: values.map((_, i) => i) },
+        yAxis: { type: 'value', show: false, min: min - padding, max: max + padding },
+        series: [{
+          type: 'line', data: values, smooth: true, symbol: 'none', lineStyle: { width: 1.5, color: color },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: color.replace(')', ',0.25)').replace('rgb', 'rgba') || (color + '40') },
+            { offset: 1, color: 'transparent' }
+          ]) }
+        }],
+        tooltip: { show: false }
+      });
+    }
+
+    function createGDPChart(data) {
+      const el = document.getElementById('gdpChartContainer');
+      if (!el || !data) return;
+      const chart = echarts.init(el, null, { renderer: 'canvas' });
+      echartsInstances.push(chart);
+      const labels = data.map(d => d.date || d.label);
+      const values = data.map(d => d.value);
+      chart.setOption({
+        grid: { left: 50, right: 20, top: 30, bottom: 40 },
+        title: { text: 'GDP 季度增长率 (Quarterly)', textStyle: { color: '#9ca3af', fontSize: 12, fontWeight: 'normal' }, left: 10, top: 5 },
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(17,24,50,0.95)', borderColor: 'rgba(55,65,100,0.5)', textStyle: { color: '#e5e7eb', fontSize: 11 } },
+        xAxis: { type: 'category', data: labels, axisLabel: { color: '#6b7280', fontSize: 10, rotate: 30 }, axisLine: { lineStyle: { color: '#374151' } }, splitLine: { show: false } },
+        yAxis: { type: 'value', axisLabel: { color: '#6b7280', fontSize: 10, formatter: '{value}%' }, axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(55,65,100,0.3)' } } },
+        series: [{
+          type: 'bar', data: values.map(v => ({
+            value: v,
+            itemStyle: { color: v >= 0 ? new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#22c55e'},{offset:1,color:'#16a34a80'}]) : new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#ef4444'},{offset:1,color:'#dc262680'}]) }
+          })),
+          barWidth: '55%', borderRadius: [3, 3, 0, 0]
+        }]
+      });
+    }
+
+    function createRateProbabilityHeatmap(meetings, probabilities) {
+      if (!meetings || !probabilities || meetings.length === 0) {
+        document.getElementById('rateProbabilitySection').innerHTML = '<p class="text-gray-500 text-sm p-4">暂无利率概率数据 / No rate probability data available</p>';
+        return;
+      }
+      const rates = [...new Set(probabilities.flatMap(p => Object.keys(p.rates || p.probabilities || {})))].sort();
+      const meetingDates = meetings.map(m => m.date || m.meeting_date || m);
+
+      let html = '<h3 class="text-sm text-gray-400 mb-3">利率概率分布 <span class="text-gray-600">Rate Probability Distribution (%)</span></h3>';
+      html += '<div class="overflow-x-auto"><table class="w-full text-xs border-collapse">';
+      html += '<thead><tr><th class="text-left p-2 text-gray-500 sticky left-0 bg-[#111832] z-10">利率 Rate</th>';
+      meetingDates.forEach(d => {
+        html += `<th class="p-2 text-gray-500 text-center whitespace-nowrap">${d}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+
+      rates.forEach(rate => {
+        html += `<tr><td class="p-2 text-gray-300 font-mono sticky left-0 bg-[#111832] z-10 whitespace-nowrap">${rate}</td>`;
+        probabilities.forEach(mp => {
+          const probs = mp.rates || mp.probabilities || {};
+          const val = probs[rate] || 0;
+          const intensity = Math.min(val / 100, 1);
+          let bgColor, textColor;
+          if (val > 50) {
+            bgColor = `rgba(59,130,246,${0.2 + intensity * 0.6})`;
+            textColor = '#e5e7eb';
+          } else if (val > 20) {
+            bgColor = `rgba(59,130,246,${intensity * 0.35})`;
+            textColor = '#9ca3af';
+          } else {
+            bgColor = 'transparent';
+            textColor = '#4b5563';
+          }
+          const isMostLikely = val === Math.max(...Object.values(probs).map(Number));
+          const border = isMostLikely && val > 0 ? 'border: 1px solid rgba(59,130,246,0.5);' : '';
+          html += `<td class="p-2 text-center heatmap-cell rounded" style="background:${bgColor}; color:${textColor}; ${border}">${val > 0 ? val.toFixed(1) : '-'}</td>`;
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      document.getElementById('rateProbabilitySection').innerHTML = html;
+    }
+
+    // ============================================================
+    // Card Builder
+    // ============================================================
+    function buildIndicatorCard(id, cnName, enName, value, unit, previous, frequency, lastDate, history, sparkColor, invertColor = false) {
+      const sparkId = 'spark_' + id;
+      let displayVal, prevDisplay;
+
+      if (unit === '%') {
+        displayVal = (value != null && !isNaN(value)) ? formatNumber(value, 1) : '--';
+        prevDisplay = (previous != null && !isNaN(previous)) ? formatNumber(previous, 1) : '--';
+      } else if (unit === 'K') {
+        // For NFP MoM diff: value is already in thousands (e.g. 256 = 256K jobs)
+        displayVal = (value != null && !isNaN(value)) ? formatNumber(value, 0) : '--';
+        prevDisplay = (previous != null && !isNaN(previous)) ? formatNumber(previous, 0) : '--';
+      } else {
+        displayVal = (value != null && !isNaN(value)) ? formatNumber(value, 1) : '--';
+        prevDisplay = (previous != null && !isNaN(previous)) ? formatNumber(previous, 1) : '--';
+      }
+
+      const changeHtml = formatChangeSimple(value, previous, invertColor);
+      const freqBadge = frequency ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/60 text-gray-400">${frequency}</span>` : '';
+      const unitLabel = unit || '';
+      return `
+        <div class="indicator-card glass-card rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <h3 class="text-sm text-gray-300 font-medium">${cnName}</h3>
+              <p class="text-[10px] text-gray-500">${enName}</p>
+            </div>
+            ${freqBadge}
+          </div>
+          <div class="text-2xl font-bold text-white tabular-nums">${displayVal}<span class="text-sm text-gray-500 ml-1">${unitLabel}</span></div>
+          <div class="flex items-center gap-2 text-xs mt-1">
+            ${changeHtml}
+            <span class="text-gray-600">vs 前值 ${prevDisplay}${unitLabel}</span>
+          </div>
+          <div id="${sparkId}" class="h-12 mt-2"></div>
+          <div class="text-[10px] text-gray-600 mt-1">${lastDate ? '发布: ' + lastDate : ''}</div>
+        </div>`;
+    }
+
+    // ============================================================
+    // Section Renderers
+    // ============================================================
+    function renderEmploymentCards(data) {
+      const grid = document.getElementById('employmentGrid');
+      if (!data) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-3">就业数据加载失败 / Failed to load employment data</p>'; return; }
+
+      const indicators = [
+        { id: 'nfp', cn: '非农新增就业', en: 'NFP Monthly Change (K)', key: 'nfp', unit: 'K', freq: '月度 Monthly', color: '#3b82f6' },
+        { id: 'unemp', cn: '失业率', en: 'Unemployment Rate', key: 'unemployment_rate', unit: '%', freq: '月度 Monthly', color: '#f59e0b', invert: true },
+        { id: 'claims', cn: '初请失业金人数', en: 'Initial Jobless Claims (K)', key: 'initial_claims', unit: 'K', freq: '每周 Weekly', color: '#ef4444', invert: true }
+      ];
+
+      let html = '';
+      indicators.forEach(ind => {
+        const d = data[ind.key] || {};
+        html += buildIndicatorCard(ind.id, ind.cn, ind.en, d.value, ind.unit, d.previous, ind.freq, d.last_date, d.history, ind.color, ind.invert);
+      });
+      grid.innerHTML = html;
+
+      // Render sparklines after DOM update
+      requestAnimationFrame(() => {
+        indicators.forEach(ind => {
+          const d = data[ind.key] || {};
+          if (d.history && d.history.length > 0) createSparkline('spark_' + ind.id, d.history, ind.color);
+        });
+      });
+    }
+
+    function renderInflationCards(data) {
+      const grid = document.getElementById('inflationGrid');
+      if (!data) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-4">通胀数据加载失败 / Failed to load inflation data</p>'; return; }
+
+      const indicators = [
+        { id: 'cpi', cn: '消费者价格指数', en: 'CPI YoY', key: 'cpi', unit: '%', freq: '月度', color: '#ef4444', invert: true },
+        { id: 'core_cpi', cn: '核心CPI', en: 'Core CPI YoY', key: 'core_cpi', unit: '%', freq: '月度', color: '#f97316', invert: true },
+        { id: 'pce', cn: '个人消费支出价格指数', en: 'PCE YoY', key: 'pce', unit: '%', freq: '月度', color: '#f59e0b', invert: true },
+        { id: 'ppi', cn: '生产者价格指数', en: 'PPI YoY', key: 'ppi', unit: '%', freq: '月度', color: '#eab308', invert: true }
+      ];
+
+      let html = '';
+      indicators.forEach(ind => {
+        const d = data[ind.key] || {};
+        html += buildIndicatorCard(ind.id, ind.cn, ind.en, d.value, ind.unit, d.previous, ind.freq, d.last_date, d.history, ind.color, ind.invert);
+      });
+      grid.innerHTML = html;
+
+      requestAnimationFrame(() => {
+        indicators.forEach(ind => {
+          const d = data[ind.key] || {};
+          if (d.history && d.history.length > 0) createSparkline('spark_' + ind.id, d.history, ind.color);
+        });
+      });
+    }
+
+    function renderGDPSection(data) {
+      const card = document.getElementById('gdpCard');
+      if (!data || !data.gdp) {
+        card.innerHTML = '<p class="text-gray-500 text-sm">GDP数据加载失败</p>';
+        return;
+      }
+      const d = data.gdp;
+      card.innerHTML = `
+        <h3 class="text-sm text-gray-400 mb-1">GDP 增长率</h3>
+        <p class="text-[10px] text-gray-600 mb-3">Real GDP Growth Rate (Annualized)</p>
+        <div class="text-3xl font-bold text-white tabular-nums mb-2">${d.value != null ? d.value.toFixed(1) : '--'}<span class="text-sm text-gray-500 ml-1">%</span></div>
+        <div class="text-xs">${formatChangeSimple(d.value, d.previous)}<span class="text-gray-600 ml-2">vs 前值 ${d.previous != null ? d.previous.toFixed(1) : '--'}%</span></div>
+        <div class="text-[10px] text-gray-600 mt-3">${d.last_date ? '发布: ' + d.last_date : ''}</div>
+        <div class="text-[10px] text-gray-700 mt-1">季度发布 Quarterly</div>`;
+
+      if (d.history && d.history.length > 0) {
+        createGDPChart(d.history);
+      }
+    }
+
+    function renderPMIRetailCards(data) {
+      const grid = document.getElementById('pmiRetailGrid');
+      if (!data) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-5">PMI/零售数据加载失败</p>'; return; }
+
+      const indicators = [
+        { id: 'umich', cn: '密歇根消费者信心', en: 'Michigan Consumer Sentiment', key: 'michigan_sentiment', unit: '', freq: '月度', color: '#8b5cf6' },
+        { id: 'retail', cn: '零售销售 MoM%', en: 'Retail Sales MoM%', key: 'retail_sales', unit: '%', freq: '月度', color: '#06b6d4' },
+        { id: 'ism_mfg', cn: 'ISM制造业PMI', en: 'ISM Manufacturing PMI', key: 'ism_manufacturing', unit: '', freq: '月度', color: '#3b82f6' },
+        { id: 'ism_svc', cn: 'ISM非制造业活动', en: 'ISM Non-Mfg Business Activity', key: 'ism_services', unit: '', freq: '月度', color: '#6366f1' },
+        { id: 'housing', cn: '新屋开工', en: 'Housing Starts (K)', key: 'housing_starts', unit: 'K', freq: '月度', color: '#10b981' }
+      ];
+
+      let html = '';
+      indicators.forEach(ind => {
+        const d = data[ind.key] || {};
+        html += buildIndicatorCard(ind.id, ind.cn, ind.en, d.value, ind.unit, d.previous, ind.freq, d.last_date, d.history, ind.color);
+      });
+      grid.innerHTML = html;
+
+      requestAnimationFrame(() => {
+        indicators.forEach(ind => {
+          const d = data[ind.key] || {};
+          if (d.history && d.history.length > 0) createSparkline('spark_' + ind.id, d.history, ind.color);
+        });
+      });
+    }
+
+    function renderFedWatch(data) {
+      if (!data) {
+        document.getElementById('currentRateCard').innerHTML = '<p class="text-gray-500 text-sm p-2">美联储数据加载失败 / Failed to load Fed data</p>';
+        document.getElementById('fomcCalendar').innerHTML = '';
+        return;
+      }
+
+      // Current Rate
+      const rate = data.current_rate;
+      const rateCard = document.getElementById('currentRateCard');
+      rateCard.innerHTML = `
+        <h3 class="text-sm text-gray-400 mb-1">联邦基金利率</h3>
+        <p class="text-[10px] text-gray-600 mb-3">Federal Funds Target Rate</p>
+        <div class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent tabular-nums">
+          ${rate != null ? (typeof rate === 'string' ? rate : rate.toFixed(2) + '%') : '--'}
+        </div>
+        ${data.next_meeting ? `<div class="mt-3 text-xs text-gray-500">下次会议 / Next Meeting: <span class="text-gray-300">${data.next_meeting}</span></div>` : ''}
+        ${data.days_to_next ? `<div class="text-xs text-yellow-400/80 mt-1">距下次会议 ${data.days_to_next} 天</div>` : ''}`;
+
+      // FOMC Calendar
+      const cal = document.getElementById('fomcCalendar');
+      if (data.meetings && data.meetings.length > 0) {
+        let calHtml = '<h3 class="text-sm text-gray-400 mb-3">FOMC 会议日程</h3>';
+        calHtml += '<div class="space-y-2">';
+        data.meetings.forEach((m, i) => {
+          const date = m.date || m.meeting_date || m;
+          const isPast = new Date(date) < new Date();
+          const isNext = i === 0 && !isPast;
+          const borderColor = isNext ? 'border-blue-500/50 bg-blue-500/5' : isPast ? 'border-gray-700/30 opacity-50' : 'border-gray-700/30';
+          calHtml += `<div class="flex items-center justify-between p-2 rounded-lg border ${borderColor} text-xs">
+            <span class="text-gray-300">${date}</span>
+            ${isNext ? '<span class="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">NEXT</span>' : ''}
+            ${m.decision ? `<span class="text-gray-500">${m.decision}</span>` : ''}
+          </div>`;
+        });
+        calHtml += '</div>';
+        cal.innerHTML = calHtml;
+      } else {
+        cal.innerHTML = '<p class="text-gray-600 text-xs">暂无会议日程数据</p>';
+      }
+
+      // Rate Probability Heatmap
+      const probSection = document.getElementById('rateProbabilitySection');
+      if (data.probabilities && data.meetings) {
+        createRateProbabilityHeatmap(data.meetings, data.probabilities);
+      } else {
+        let noteHtml = '<div class="p-6 text-center">';
+        noteHtml += '<p class="text-gray-400 text-sm mb-2">利率概率数据 / Rate Probability Data</p>';
+        if (data.source_note) {
+          noteHtml += `<p class="text-gray-500 text-xs mb-3">${data.source_note}</p>`;
+        }
+        noteHtml += '<a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20 hover:border-blue-500/40 transition-all">';
+        noteHtml += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>';
+        noteHtml += '查看 CME FedWatch Tool</a></div>';
+        probSection.innerHTML = noteHtml;
+      }
+    }
+
+    function renderTruthSocial(data) {
+      const feed = document.getElementById('truthSocialFeed');
+      const posts = Array.isArray(data) ? data : (data && data.posts ? data.posts : []);
+      const errorMsg = data && data.error ? data.error : null;
+
+      if (posts.length === 0) {
+        feed.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <svg class="w-10 h-10 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            <p class="text-sm">${errorMsg ? errorMsg : '暂无社交媒体动态'}</p>
+            <p class="text-xs text-gray-600 mt-1">${errorMsg ? '' : 'No posts available'}</p>
+            <a href="https://truthsocial.com/@realDonaldTrump" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-block">直接访问 Truth Social &rarr;</a>
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      posts.forEach(post => {
+        const text = (post.text || post.content || '').replace(/\n/g, '<br>');
+        const time = post.created_at || post.timestamp || post.date || '';
+        const url = post.url || post.link || `https://truthsocial.com/@realDonaldTrump/${post.id || ''}`;
+        const reblogs = post.reblogs_count || 0;
+        const favs = post.favourites_count || 0;
+        const replies = post.replies_count || 0;
+        const hasEngagement = reblogs || favs || replies;
+        html += `
+          <div class="truth-post p-4 rounded-lg bg-gray-800/40 hover:bg-gray-800/60 transition-colors">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-red-500 flex items-center justify-center text-xs font-bold text-white">T</div>
+              <div>
+                <span class="text-sm text-gray-200 font-medium">Donald J. Trump</span>
+                <span class="text-[10px] text-gray-600 ml-2">@realDonaldTrump</span>
+              </div>
+              <span class="ml-auto text-[10px] text-gray-600">${timeAgo(time)}</span>
+            </div>
+            <div class="text-sm text-gray-300 leading-relaxed pl-10">${text}</div>
+            <div class="flex justify-between items-center mt-3 pl-10">
+              <div class="flex items-center gap-4 text-[10px] text-gray-600">
+                ${hasEngagement ? `
+                  <span title="Replies">&#128172; ${replies.toLocaleString()}</span>
+                  <span title="Reblogs">&#128257; ${reblogs.toLocaleString()}</span>
+                  <span title="Favorites">&#9829; ${favs.toLocaleString()}</span>
+                ` : ''}
+                <span>${time ? new Date(time).toLocaleString('zh-CN') : ''}</span>
+              </div>
+              <a href="${url}" target="_blank" class="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">查看原文 &rarr;</a>
+            </div>
+          </div>`;
+      });
+      feed.innerHTML = html;
+    }
+
+    // ============================================================
+    // Auto-Refresh & Init
+    // ============================================================
+    async function refreshAll() {
+      hideError();
+      const icon = document.getElementById('refreshIcon');
+      icon.style.transform = 'rotate(360deg)';
+      setTimeout(() => { icon.style.transform = ''; }, 600);
+
+      try {
+        const [macroData, fedData, truthData] = await Promise.all([
+          fetchMacroData(),
+          fetchFedWatch(),
+          fetchTruthSocial()
+        ]);
+
+        disposeAllCharts();
+
+        if (macroData && !macroData._error) {
+          renderEmploymentCards(macroData.employment || null);
+          renderInflationCards(macroData.inflation || null);
+          renderGDPSection(macroData.gdp_section || macroData.gdp || null);
+          // Merge pmi_retail and housing into one object for the PMI section
+          const pmiData = Object.assign({}, macroData.pmi_retail || {}, macroData.housing || {});
+          renderPMIRetailCards(Object.keys(pmiData).length > 0 ? pmiData : null);
+        } else if (macroData && macroData._error) {
+          showError(macroData._error);
+          renderEmploymentCards(null);
+          renderInflationCards(null);
+          renderGDPSection(null);
+          renderPMIRetailCards(null);
+        } else {
+          renderEmploymentCards(null);
+          renderInflationCards(null);
+          renderGDPSection(null);
+          renderPMIRetailCards(null);
+        }
+
+        renderFedWatch(fedData);
+        renderTruthSocial(truthData);
+        updateLastRefresh();
+      } catch (e) {
+        console.error('Refresh error:', e);
+        showError('数据刷新失败，请检查网络连接。Data refresh failed, check connection.');
+        setConnectionStatus(false);
+      }
+    }
+
+    function manualRefresh() {
+      countdown = REFRESH_INTERVAL;
+      refreshAll();
+    }
+
+    function startAutoRefresh() {
+      countdown = REFRESH_INTERVAL;
+      const ring = document.getElementById('countdownRing');
+      const circumference = 2 * Math.PI * 8; // r=8
+
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        countdown--;
+        document.getElementById('countdownText').textContent = countdown;
+        const offset = circumference * (1 - countdown / REFRESH_INTERVAL);
+        ring.style.strokeDashoffset = offset;
+
+        if (countdown <= 0) {
+          countdown = REFRESH_INTERVAL;
+          refreshAll();
+        }
+      }, 1000);
+    }
+
+    // Window resize handler
+    window.addEventListener('resize', () => {
+      echartsInstances.forEach(inst => {
+        try { inst.resize(); } catch(e) {}
+      });
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshAll();
+      startAutoRefresh();
+    });
+  </script>
+</body>
+</html>

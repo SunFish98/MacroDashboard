@@ -1,0 +1,12 @@
+flask>=3.0
+requests>=2.31
+beautifulsoup4>=4.12
+feedparser>=6.0
+apscheduler>=3.10
+python-dateutil>=2.8
+cachetools>=5.3
+
+# Optional: enables browser-based scraping for CME FedWatch and Truth Social
+# when their APIs block your IP. Install with:
+#   pip install playwright && playwright install chromium
+# playwright>=1.40
