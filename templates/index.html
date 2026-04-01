@@ -49,19 +49,19 @@
     <div class="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3">
         <div>
-          <h1 class="text-lg font-bold tracking-wide bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">宏观经济实时监控面板</h1>
-          <p class="text-[10px] text-gray-500 tracking-widest uppercase">Macro Economic Real-Time Dashboard</p>
+          <h1 class="text-lg font-bold tracking-wide bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"><span data-zh="宏观经济实时监控面板" data-en="Macro Dashboard">宏观经济实时监控面板</span></h1>
+          <p class="text-[10px] text-gray-500 tracking-widest uppercase"><span data-zh="Macro Economic Real-Time Dashboard" data-en="">Macro Economic Real-Time Dashboard</span></p>
         </div>
       </div>
       <div class="flex items-center gap-5 text-xs">
         <!-- Connection Status -->
         <div class="flex items-center gap-2">
           <div id="statusDot" class="pulse-dot connected"></div>
-          <span id="statusText" class="text-gray-400">已连接 Connected</span>
+          <span id="statusText" class="text-gray-400">已连接</span>
         </div>
         <!-- Last Refresh -->
         <div class="text-gray-500">
-          <span>上次刷新: </span>
+          <span data-zh="上次刷新: " data-en="Last refresh: ">上次刷新: </span>
           <span id="lastRefreshTime" class="text-gray-300">--:--:--</span>
         </div>
         <!-- Countdown -->
@@ -76,8 +76,9 @@
         <!-- Refresh Button -->
         <button id="refreshBtn" onclick="manualRefresh()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/20 hover:border-blue-500/40 transition-all text-xs">
           <svg id="refreshIcon" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115.36-4.36M20 15a9 9 0 01-15.36 4.36"/></svg>
-          刷新
+          <span data-zh="刷新" data-en="Refresh">刷新</span>
         </button>
+        <button id="langToggle" onclick="toggleLang()" class="px-3 py-1.5 rounded-lg bg-gray-700/40 text-gray-300 hover:bg-gray-700/60 border border-gray-600/30 hover:border-gray-500/50 transition-all text-xs font-semibold tracking-wide">EN</button>
       </div>
     </div>
   </header>
@@ -97,8 +98,10 @@
       <div class="flex items-start gap-3">
         <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <div>
-          <p class="font-semibold mb-1">FRED API Key 未配置 / FRED API Key Not Configured</p>
-          <p class="text-yellow-400/70 text-xs">请在环境变量中设置 <code class="bg-yellow-800/30 px-1.5 py-0.5 rounded">FRED_API_KEY</code> 以启用宏观经济数据获取。可在 <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank" class="underline hover:text-yellow-200">FRED 官网</a> 免费申请。</p>
+          <p class="font-semibold mb-1 lang-zh">FRED API Key 未配置</p>
+          <p class="font-semibold mb-1 lang-en hidden">FRED API Key Not Configured</p>
+          <p class="text-yellow-400/70 text-xs lang-zh">请在环境变量中设置 <code class="bg-yellow-800/30 px-1.5 py-0.5 rounded">FRED_API_KEY</code> 以启用宏观经济数据获取。可在 <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank" class="underline hover:text-yellow-200">FRED 官网</a> 免费申请。</p>
+          <p class="text-yellow-400/70 text-xs lang-en hidden">Set <code class="bg-yellow-800/30 px-1.5 py-0.5 rounded">FRED_API_KEY</code> as an environment variable. Get a free key at <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank" class="underline hover:text-yellow-200">fred.stlouisfed.org</a>.</p>
         </div>
       </div>
     </div>
@@ -107,7 +110,7 @@
     <!-- Section 1: Market Holidays -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        美股休市日历 <span class="text-xs text-gray-500 font-normal ml-2">US Market Holidays</span>
+        <span data-zh="美股休市日历" data-en="US Market Holidays">美股休市日历</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="US Market Holidays" data-en="">US Market Holidays</span>
       </h2>
       <div id="holidayCalendar" class="glass-card rounded-xl p-4">
         <div class="skeleton h-16 rounded-lg"></div>
@@ -117,7 +120,7 @@
     <!-- Section 2: Employment Data -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        就业数据 <span class="text-xs text-gray-500 font-normal ml-2">Employment Data</span>
+        <span data-zh="就业数据" data-en="Employment Data">就业数据</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="Employment Data" data-en="">Employment Data</span>
       </h2>
       <div id="employmentGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Cards rendered by JS -->
@@ -130,7 +133,7 @@
     <!-- Section 2: Inflation Data -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        通胀数据 <span class="text-xs text-gray-500 font-normal ml-2">Inflation Data</span>
+        <span data-zh="通胀数据" data-en="Inflation Data">通胀数据</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="Inflation Data" data-en="">Inflation Data</span>
       </h2>
       <div id="inflationGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="skeleton h-48 rounded-xl"></div>
@@ -143,7 +146,7 @@
     <!-- Section 3: GDP Growth -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        GDP增长率 <span class="text-xs text-gray-500 font-normal ml-2">GDP Growth Rate</span>
+        <span data-zh="GDP增长率" data-en="GDP Growth Rate">GDP增长率</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="GDP Growth Rate" data-en="">GDP Growth Rate</span>
       </h2>
       <div id="gdpSection" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="indicator-card glass-card rounded-xl p-4 lg:col-span-1">
@@ -158,7 +161,7 @@
     <!-- Section 4: PMI & Retail Sales -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        PMI / 零售销售 <span class="text-xs text-gray-500 font-normal ml-2">PMI &amp; Retail Sales</span>
+        <span data-zh="PMI / 零售销售" data-en="PMI &amp; Retail Sales">PMI / 零售销售</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="PMI &amp; Retail Sales" data-en="">PMI &amp; Retail Sales</span>
       </h2>
       <div id="pmiRetailGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div class="skeleton h-48 rounded-xl"></div>
@@ -172,7 +175,7 @@
     <!-- Section 5: Fed Watch -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        美联储观察 <span class="text-xs text-gray-500 font-normal ml-2">Fed Watch</span>
+        <span data-zh="美联储观察" data-en="Fed Watch">美联储观察</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="Fed Watch" data-en="">Fed Watch</span>
         <a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" class="ml-3 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5 font-normal">CME FedWatch Tool &rarr;</a>
       </h2>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -197,7 +200,7 @@
     <!-- Section 7: Truth Social -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
-        特朗普社交媒体动态 <span class="text-xs text-gray-500 font-normal ml-2">Trump Truth Social</span>
+        <span data-zh="特朗普社交媒体动态" data-en="Trump Truth Social">特朗普社交媒体动态</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="Trump Truth Social" data-en="">Trump Truth Social</span>
         <a href="https://truthsocial.com/@realDonaldTrump" target="_blank" class="ml-3 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5 font-normal">@realDonaldTrump &rarr;</a>
       </h2>
       <div id="truthSocialFeed" class="glass-card rounded-xl p-4 max-h-[500px] overflow-y-auto space-y-3">
@@ -211,9 +214,9 @@
   <!-- Footer -->
   <footer class="border-t border-gray-800/50 mt-4">
     <div class="max-w-[1600px] mx-auto px-4 py-6 text-center text-xs text-gray-600 space-y-1">
-      <p>数据来源 / Data Sources: <a href="https://fred.stlouisfed.org/" target="_blank" class="text-gray-500 hover:text-gray-300">FRED (Federal Reserve Economic Data)</a> &middot; <a href="https://www.cmegroup.com/" target="_blank" class="text-gray-500 hover:text-gray-300">CME Group</a> &middot; <a href="https://truthsocial.com/" target="_blank" class="text-gray-500 hover:text-gray-300">Truth Social</a></p>
-      <p class="text-gray-700">宏观经济数据需要配置 FRED API Key 方可获取。部分数据存在延迟，仅供参考，不构成投资建议。</p>
-      <p class="text-gray-700">Macro data requires a FRED API key. Data may be delayed. For reference only; not investment advice.</p>
+      <p><span data-zh="数据来源" data-en="Data Sources">数据来源</span>: <a href="https://fred.stlouisfed.org/" target="_blank" class="text-gray-500 hover:text-gray-300">FRED (Federal Reserve Economic Data)</a> &middot; <a href="https://www.cmegroup.com/" target="_blank" class="text-gray-500 hover:text-gray-300">CME Group</a> &middot; <a href="https://truthsocial.com/" target="_blank" class="text-gray-500 hover:text-gray-300">Truth Social</a></p>
+      <p class="text-gray-700 lang-zh">宏观经济数据需要配置 FRED API Key 方可获取。部分数据存在延迟，仅供参考，不构成投资建议。</p>
+      <p class="text-gray-700 lang-en hidden">Macro data requires a FRED API key. Data may be delayed. For reference only; not investment advice.</p>
     </div>
   </footer>
 
@@ -226,6 +229,9 @@
     let countdownTimer = null;
     let echartsInstances = [];
     let isConnected = false;
+    let LANG = localStorage.getItem('lang') || 'zh';
+    const _cache = { macro: null, fed: null, truth: null, holidays: null };
+    function T(zh, en) { return LANG === 'en' ? en : zh; }
 
     // ============================================================
     // Utility Functions
@@ -267,11 +273,12 @@
       const date = new Date(dateStr);
       const now = new Date();
       const seconds = Math.floor((now - date) / 1000);
-      if (seconds < 60) return '刚刚 just now';
-      if (seconds < 3600) return `${Math.floor(seconds/60)} 分钟前`;
-      if (seconds < 86400) return `${Math.floor(seconds/3600)} 小时前`;
-      if (seconds < 604800) return `${Math.floor(seconds/86400)} 天前`;
-      return date.toLocaleDateString('zh-CN');
+      const m = Math.floor(seconds/60), h = Math.floor(seconds/3600), d = Math.floor(seconds/86400);
+      if (seconds < 60) return T('刚刚', 'just now');
+      if (seconds < 3600) return T(`${m} 分钟前`, `${m}m ago`);
+      if (seconds < 86400) return T(`${h} 小时前`, `${h}h ago`);
+      if (seconds < 604800) return T(`${d} 天前`, `${d}d ago`);
+      return date.toLocaleDateString(LANG === 'en' ? 'en-US' : 'zh-CN');
     }
 
     function setConnectionStatus(connected) {
@@ -280,11 +287,11 @@
       const text = document.getElementById('statusText');
       if (connected) {
         dot.className = 'pulse-dot connected';
-        text.textContent = '已连接 Connected';
+        text.textContent = T('已连接', 'Connected');
         text.className = 'text-gray-400';
       } else {
         dot.className = 'pulse-dot disconnected';
-        text.textContent = '连接失败 Disconnected';
+        text.textContent = T('连接失败', 'Disconnected');
         text.className = 'text-red-400';
       }
     }
@@ -301,7 +308,7 @@
 
     function updateLastRefresh() {
       const now = new Date();
-      document.getElementById('lastRefreshTime').textContent = now.toLocaleTimeString('zh-CN', {hour12: false});
+      document.getElementById('lastRefreshTime').textContent = now.toLocaleTimeString(LANG === 'en' ? 'en-US' : 'zh-CN', {hour12: false});
     }
 
     // ============================================================
@@ -476,22 +483,24 @@
       const changeHtml = formatChangeSimple(value, previous, invertColor);
       const freqBadge = frequency ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/60 text-gray-400">${frequency}</span>` : '';
       const unitLabel = unit || '';
+      const primaryName = T(cnName, enName);
+      const secondaryName = T(enName, '');
       return `
         <div class="indicator-card glass-card rounded-xl p-4">
           <div class="flex justify-between items-start mb-2">
             <div>
-              <h3 class="text-sm text-gray-300 font-medium">${cnName}</h3>
-              <p class="text-[10px] text-gray-500">${enName}</p>
+              <h3 class="text-sm text-gray-300 font-medium">${primaryName}</h3>
+              ${secondaryName ? `<p class="text-[10px] text-gray-500">${secondaryName}</p>` : ''}
             </div>
             ${freqBadge}
           </div>
           <div class="text-2xl font-bold text-white tabular-nums">${displayVal}<span class="text-sm text-gray-500 ml-1">${unitLabel}</span></div>
           <div class="flex items-center gap-2 text-xs mt-1">
             ${changeHtml}
-            <span class="text-gray-600">vs 前值 ${prevDisplay}${unitLabel}</span>
+            <span class="text-gray-600">vs ${T('前值', 'Prev')} ${prevDisplay}${unitLabel}</span>
           </div>
           <div id="${sparkId}" class="h-12 mt-2"></div>
-          <div class="text-[10px] text-gray-600 mt-1">${lastDate ? '发布: ' + lastDate : ''}</div>
+          <div class="text-[10px] text-gray-600 mt-1">${lastDate ? T('发布: ', 'Release: ') + lastDate : ''}</div>
         </div>`;
     }
 
@@ -500,12 +509,12 @@
     // ============================================================
     function renderEmploymentCards(data) {
       const grid = document.getElementById('employmentGrid');
-      if (!data) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-3">就业数据加载失败 / Failed to load employment data</p>'; return; }
+      if (!data) { grid.innerHTML = `<p class="text-gray-500 text-sm col-span-3">${T('就业数据加载失败', 'Failed to load employment data')}</p>`; return; }
 
       const indicators = [
-        { id: 'nfp', cn: '非农新增就业', en: 'NFP Monthly Change (K)', key: 'nfp', unit: 'K', freq: '月度 Monthly', color: '#3b82f6' },
-        { id: 'unemp', cn: '失业率', en: 'Unemployment Rate', key: 'unemployment_rate', unit: '%', freq: '月度 Monthly', color: '#f59e0b', invert: true },
-        { id: 'claims', cn: '初请失业金人数', en: 'Initial Jobless Claims (K)', key: 'initial_claims', unit: 'K', freq: '每周 Weekly', color: '#ef4444', invert: true }
+        { id: 'nfp', cn: '非农新增就业', en: 'NFP Monthly Change (K)', key: 'nfp', unit: 'K', freq: T('月度', 'Monthly'), color: '#3b82f6' },
+        { id: 'unemp', cn: '失业率', en: 'Unemployment Rate', key: 'unemployment_rate', unit: '%', freq: T('月度', 'Monthly'), color: '#f59e0b', invert: true },
+        { id: 'claims', cn: '初请失业金人数', en: 'Initial Jobless Claims (K)', key: 'initial_claims', unit: 'K', freq: T('每周', 'Weekly'), color: '#ef4444', invert: true }
       ];
 
       let html = '';
@@ -526,13 +535,13 @@
 
     function renderInflationCards(data) {
       const grid = document.getElementById('inflationGrid');
-      if (!data) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-4">通胀数据加载失败 / Failed to load inflation data</p>'; return; }
+      if (!data) { grid.innerHTML = `<p class="text-gray-500 text-sm col-span-4">${T('通胀数据加载失败', 'Failed to load inflation data')}</p>`; return; }
 
       const indicators = [
-        { id: 'cpi', cn: '消费者价格指数', en: 'CPI YoY', key: 'cpi', unit: '%', freq: '月度', color: '#ef4444', invert: true },
-        { id: 'core_cpi', cn: '核心CPI', en: 'Core CPI YoY', key: 'core_cpi', unit: '%', freq: '月度', color: '#f97316', invert: true },
-        { id: 'pce', cn: '个人消费支出价格指数', en: 'PCE YoY', key: 'pce', unit: '%', freq: '月度', color: '#f59e0b', invert: true },
-        { id: 'ppi', cn: '生产者价格指数', en: 'PPI YoY', key: 'ppi', unit: '%', freq: '月度', color: '#eab308', invert: true }
+        { id: 'cpi', cn: '消费者价格指数', en: 'CPI YoY', key: 'cpi', unit: '%', freq: T('月度', 'Monthly'), color: '#ef4444', invert: true },
+        { id: 'core_cpi', cn: '核心CPI', en: 'Core CPI YoY', key: 'core_cpi', unit: '%', freq: T('月度', 'Monthly'), color: '#f97316', invert: true },
+        { id: 'pce', cn: '个人消费支出价格指数', en: 'PCE YoY', key: 'pce', unit: '%', freq: T('月度', 'Monthly'), color: '#f59e0b', invert: true },
+        { id: 'ppi', cn: '生产者价格指数', en: 'PPI YoY', key: 'ppi', unit: '%', freq: T('月度', 'Monthly'), color: '#eab308', invert: true }
       ];
 
       let html = '';
@@ -553,17 +562,17 @@
     function renderGDPSection(data) {
       const card = document.getElementById('gdpCard');
       if (!data || !data.gdp) {
-        card.innerHTML = '<p class="text-gray-500 text-sm">GDP数据加载失败</p>';
+        card.innerHTML = `<p class="text-gray-500 text-sm">${T('GDP数据加载失败', 'Failed to load GDP data')}</p>`;
         return;
       }
       const d = data.gdp;
       card.innerHTML = `
-        <h3 class="text-sm text-gray-400 mb-1">GDP 增长率</h3>
+        <h3 class="text-sm text-gray-400 mb-1">${T('GDP 增长率', 'GDP Growth Rate')}</h3>
         <p class="text-[10px] text-gray-600 mb-3">Real GDP Growth Rate (Annualized)</p>
         <div class="text-3xl font-bold text-white tabular-nums mb-2">${d.value != null ? d.value.toFixed(1) : '--'}<span class="text-sm text-gray-500 ml-1">%</span></div>
-        <div class="text-xs">${formatChangeSimple(d.value, d.previous)}<span class="text-gray-600 ml-2">vs 前值 ${d.previous != null ? d.previous.toFixed(1) : '--'}%</span></div>
-        <div class="text-[10px] text-gray-600 mt-3">${d.last_date ? '发布: ' + d.last_date : ''}</div>
-        <div class="text-[10px] text-gray-700 mt-1">季度发布 Quarterly</div>`;
+        <div class="text-xs">${formatChangeSimple(d.value, d.previous)}<span class="text-gray-600 ml-2">vs ${T('前值', 'Prev')} ${d.previous != null ? d.previous.toFixed(1) : '--'}%</span></div>
+        <div class="text-[10px] text-gray-600 mt-3">${d.last_date ? T('发布: ', 'Release: ') + d.last_date : ''}</div>
+        <div class="text-[10px] text-gray-700 mt-1">${T('季度发布', 'Quarterly')}</div>`;
 
       if (d.history && d.history.length > 0) {
         createGDPChart(d.history);
@@ -572,14 +581,14 @@
 
     function renderPMIRetailCards(data) {
       const grid = document.getElementById('pmiRetailGrid');
-      if (!data) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-5">PMI/零售数据加载失败</p>'; return; }
+      if (!data) { grid.innerHTML = `<p class="text-gray-500 text-sm col-span-5">${T('PMI/零售数据加载失败', 'Failed to load PMI/retail data')}</p>`; return; }
 
       const indicators = [
-        { id: 'umich', cn: '密歇根消费者信心', en: 'Michigan Consumer Sentiment', key: 'michigan_sentiment', unit: '', freq: '月度', color: '#8b5cf6' },
-        { id: 'retail', cn: '零售销售 MoM%', en: 'Retail Sales MoM%', key: 'retail_sales', unit: '%', freq: '月度', color: '#06b6d4' },
-        { id: 'ism_mfg', cn: 'ISM制造业PMI', en: 'ISM Manufacturing PMI', key: 'ism_manufacturing', unit: '', freq: '月度', color: '#3b82f6' },
-        { id: 'ism_svc', cn: 'ISM非制造业活动', en: 'ISM Non-Mfg Business Activity', key: 'ism_services', unit: '', freq: '月度', color: '#6366f1' },
-        { id: 'housing', cn: '新屋开工', en: 'Housing Starts (K)', key: 'housing_starts', unit: 'K', freq: '月度', color: '#10b981' }
+        { id: 'umich', cn: '密歇根消费者信心', en: 'Michigan Consumer Sentiment', key: 'michigan_sentiment', unit: '', freq: T('月度', 'Monthly'), color: '#8b5cf6' },
+        { id: 'retail', cn: '零售销售 MoM%', en: 'Retail Sales MoM%', key: 'retail_sales', unit: '%', freq: T('月度', 'Monthly'), color: '#06b6d4' },
+        { id: 'ism_mfg', cn: 'ISM制造业PMI', en: 'ISM Manufacturing PMI', key: 'ism_manufacturing', unit: '', freq: T('月度', 'Monthly'), color: '#3b82f6' },
+        { id: 'ism_svc', cn: 'ISM非制造业活动', en: 'ISM Non-Mfg Business Activity', key: 'ism_services', unit: '', freq: T('月度', 'Monthly'), color: '#6366f1' },
+        { id: 'housing', cn: '新屋开工', en: 'Housing Starts (K)', key: 'housing_starts', unit: 'K', freq: T('月度', 'Monthly'), color: '#10b981' }
       ];
 
       let html = '';
@@ -599,7 +608,7 @@
 
     function renderFedWatch(data) {
       if (!data) {
-        document.getElementById('currentRateCard').innerHTML = '<p class="text-gray-500 text-sm p-2">美联储数据加载失败 / Failed to load Fed data</p>';
+        document.getElementById('currentRateCard').innerHTML = `<p class="text-gray-500 text-sm p-2">${T('美联储数据加载失败', 'Failed to load Fed data')}</p>`;
         document.getElementById('fomcCalendar').innerHTML = '';
         return;
       }
@@ -608,18 +617,18 @@
       const rate = data.current_rate;
       const rateCard = document.getElementById('currentRateCard');
       rateCard.innerHTML = `
-        <h3 class="text-sm text-gray-400 mb-1">联邦基金利率</h3>
+        <h3 class="text-sm text-gray-400 mb-1">${T('联邦基金利率', 'Federal Funds Rate')}</h3>
         <p class="text-[10px] text-gray-600 mb-3">Federal Funds Target Rate</p>
         <div class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent tabular-nums">
           ${rate != null ? (typeof rate === 'string' ? rate : rate.toFixed(2) + '%') : '--'}
         </div>
-        ${data.next_meeting ? `<div class="mt-3 text-xs text-gray-500">下次会议 / Next Meeting: <span class="text-gray-300">${data.next_meeting}</span></div>` : ''}
-        ${data.days_to_next ? `<div class="text-xs text-yellow-400/80 mt-1">距下次会议 ${data.days_to_next} 天</div>` : ''}`;
+        ${data.next_meeting ? `<div class="mt-3 text-xs text-gray-500">${T('下次会议', 'Next Meeting')}: <span class="text-gray-300">${data.next_meeting}</span></div>` : ''}
+        ${data.days_to_next ? `<div class="text-xs text-yellow-400/80 mt-1">${T(`距下次会议 ${data.days_to_next} 天`, `${data.days_to_next} days to next meeting`)}</div>` : ''}`;
 
       // FOMC Calendar
       const cal = document.getElementById('fomcCalendar');
       if (data.meetings && data.meetings.length > 0) {
-        let calHtml = '<h3 class="text-sm text-gray-400 mb-3">FOMC 会议日程</h3>';
+        let calHtml = `<h3 class="text-sm text-gray-400 mb-3">${T('FOMC 会议日程', 'FOMC Meeting Schedule')}</h3>`;
         calHtml += '<div class="space-y-2">';
         data.meetings.forEach((m, i) => {
           const date = m.date || m.meeting_date || m;
@@ -635,7 +644,7 @@
         calHtml += '</div>';
         cal.innerHTML = calHtml;
       } else {
-        cal.innerHTML = '<p class="text-gray-600 text-xs">暂无会议日程数据</p>';
+        cal.innerHTML = `<p class="text-gray-600 text-xs">${T('暂无会议日程数据', 'No meeting schedule data')}</p>`;
       }
 
       // Rate Probability Heatmap
@@ -644,13 +653,13 @@
         createRateProbabilityHeatmap(data.meetings, data.probabilities);
       } else {
         let noteHtml = '<div class="p-6 text-center">';
-        noteHtml += '<p class="text-gray-400 text-sm mb-2">利率概率数据 / Rate Probability Data</p>';
+        noteHtml += `<p class="text-gray-400 text-sm mb-2">${T('利率概率数据', 'Rate Probability Data')}</p>`;
         if (data.source_note) {
           noteHtml += `<p class="text-gray-500 text-xs mb-3">${data.source_note}</p>`;
         }
         noteHtml += '<a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-2 rounded-lg border border-blue-500/20 hover:border-blue-500/40 transition-all">';
         noteHtml += '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>';
-        noteHtml += '查看 CME FedWatch Tool</a></div>';
+        noteHtml += `${T('查看', 'View')} CME FedWatch Tool</a></div>`;
         probSection.innerHTML = noteHtml;
       }
     }
@@ -664,9 +673,9 @@
         feed.innerHTML = `
           <div class="text-center py-8 text-gray-500">
             <svg class="w-10 h-10 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-            <p class="text-sm">${errorMsg ? errorMsg : '暂无社交媒体动态'}</p>
-            <p class="text-xs text-gray-600 mt-1">${errorMsg ? '' : 'No posts available'}</p>
-            <a href="https://truthsocial.com/@realDonaldTrump" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-block">直接访问 Truth Social &rarr;</a>
+            <p class="text-sm">${errorMsg ? errorMsg : T('暂无社交媒体动态', 'No posts available')}</p>
+            <p class="text-xs text-gray-600 mt-1">${errorMsg ? '' : T('', 'Check back later')}</p>
+            <a href="https://truthsocial.com/@realDonaldTrump" target="_blank" class="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-block">${T('直接访问 Truth Social', 'Visit Truth Social')} &rarr;</a>
           </div>`;
         return;
       }
@@ -698,9 +707,9 @@
                   <span title="Reblogs">&#128257; ${reblogs.toLocaleString()}</span>
                   <span title="Favorites">&#9829; ${favs.toLocaleString()}</span>
                 ` : ''}
-                <span>${time ? new Date(time).toLocaleString('zh-CN') : ''}</span>
+                <span>${time ? new Date(time).toLocaleString(LANG === 'en' ? 'en-US' : 'zh-CN') : ''}</span>
               </div>
-              <a href="${url}" target="_blank" class="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">查看原文 &rarr;</a>
+              <a href="${url}" target="_blank" class="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">${T('查看原文', 'View Post')} &rarr;</a>
             </div>
           </div>`;
       });
@@ -710,7 +719,7 @@
     function renderHolidays(holidays) {
       const el = document.getElementById('holidayCalendar');
       if (!holidays || holidays.length === 0) {
-        el.innerHTML = '<p class="text-gray-500 text-sm">暂无即将到来的休市日 / No upcoming holidays</p>';
+        el.innerHTML = `<p class="text-gray-500 text-sm">${T('暂无即将到来的休市日', 'No upcoming holidays')}</p>`;
         return;
       }
 
@@ -731,20 +740,20 @@
         const nfp = isNFPDay(h.date);
 
         let urgency = 'border-gray-700/40 bg-gray-800/30';
-        let dayLabel = `${h.days_away} 天后`;
-        if (isToday) { urgency = 'border-red-500/60 bg-red-500/10'; dayLabel = '今天 Today'; }
-        else if (isTomorrow) { urgency = 'border-orange-500/60 bg-orange-500/10'; dayLabel = '明天 Tomorrow'; }
-        else if (isThisWeek) { urgency = 'border-yellow-500/40 bg-yellow-500/5'; dayLabel = `${h.days_away} 天后`; }
+        let dayLabel = T(`${h.days_away} 天后`, `in ${h.days_away} days`);
+        if (isToday) { urgency = 'border-red-500/60 bg-red-500/10'; dayLabel = T('今天', 'Today'); }
+        else if (isTomorrow) { urgency = 'border-orange-500/60 bg-orange-500/10'; dayLabel = T('明天', 'Tomorrow'); }
+        else if (isThisWeek) { urgency = 'border-yellow-500/40 bg-yellow-500/5'; dayLabel = T(`${h.days_away} 天后`, `in ${h.days_away} days`); }
 
-        const nfpBadge = nfp ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold">⚠ 非农日</span>` : '';
+        const nfpBadge = nfp ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold">⚠ ${T('非农日', 'NFP Day')}</span>` : '';
 
         html += `
           <div class="flex-none rounded-xl border ${urgency} p-3 min-w-[160px]">
             <div class="text-xs text-gray-400 mb-0.5">${h.date}</div>
-            <div class="text-sm font-semibold text-gray-100">${h.name_cn}${nfpBadge}</div>
-            <div class="text-[10px] text-gray-500 mt-0.5">${h.name_en}</div>
+            <div class="text-sm font-semibold text-gray-100">${T(h.name_cn, h.name_en)}${nfpBadge}</div>
+            <div class="text-[10px] text-gray-500 mt-0.5">${T(h.name_en, '')}</div>
             <div class="text-xs mt-2 font-medium ${isToday ? 'text-red-400' : isTomorrow ? 'text-orange-400' : isThisWeek ? 'text-yellow-400' : 'text-gray-500'}">
-              休市${isToday ? '' : '：' + dayLabel}
+              ${T('休市', 'Market Closed')}${isToday ? '' : ': ' + dayLabel}
             </div>
           </div>`;
       });
@@ -754,9 +763,9 @@
         html += `
           <div class="flex-none rounded-xl border border-gray-700/20 bg-gray-800/10 p-3 min-w-[160px] opacity-40">
             <div class="text-xs text-gray-500 mb-0.5">${last.date}</div>
-            <div class="text-sm text-gray-400">${last.name_cn}</div>
-            <div class="text-[10px] text-gray-600">${last.name_en}</div>
-            <div class="text-xs mt-2 text-gray-600">已过</div>
+            <div class="text-sm text-gray-400">${T(last.name_cn, last.name_en)}</div>
+            <div class="text-[10px] text-gray-600">${T(last.name_en, '')}</div>
+            <div class="text-xs mt-2 text-gray-600">${T('已过', 'Past')}</div>
           </div>`;
       }
 
@@ -780,6 +789,7 @@
           fetchTruthSocial(),
           fetchHolidays()
         ]);
+        _cache.macro = macroData; _cache.fed = fedData; _cache.truth = truthData; _cache.holidays = holidayData;
 
         disposeAllCharts();
 
@@ -809,7 +819,7 @@
         updateLastRefresh();
       } catch (e) {
         console.error('Refresh error:', e);
-        showError('数据刷新失败，请检查网络连接。Data refresh failed, check connection.');
+        showError(T('数据刷新失败，请检查网络连接。', 'Data refresh failed. Check your connection.'));
         setConnectionStatus(false);
       }
     }
@@ -838,6 +848,50 @@
       }, 1000);
     }
 
+    // ============================================================
+    // Language Switch
+    // ============================================================
+    function setLang(lang) {
+      LANG = lang;
+      localStorage.setItem('lang', lang);
+      document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+      document.getElementById('langToggle').textContent = lang === 'en' ? '中文' : 'EN';
+
+      // Update static data-zh / data-en text nodes
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = lang === 'en' ? (el.dataset.en || '') : el.dataset.zh;
+      });
+
+      // Show/hide lang-zh / lang-en blocks
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', lang === 'en'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', lang !== 'en'));
+
+      // Re-render dynamic sections with updated language
+      disposeAllCharts();
+      const macro = _cache.macro;
+      if (macro && !macro._error) {
+        renderEmploymentCards(macro.employment || null);
+        renderInflationCards(macro.inflation || null);
+        renderGDPSection(macro.gdp_section || macro.gdp || null);
+        const pmiData = Object.assign({}, macro.pmi_retail || {}, macro.housing || {});
+        renderPMIRetailCards(Object.keys(pmiData).length > 0 ? pmiData : null);
+      }
+      renderFedWatch(_cache.fed);
+      renderHolidays(_cache.holidays);
+      renderTruthSocial(_cache.truth);
+      setConnectionStatus(isConnected);
+    }
+
+    function toggleLang() {
+      setLang(LANG === 'zh' ? 'en' : 'zh');
+    }
+
+    function initLang() {
+      const saved = localStorage.getItem('lang') || 'zh';
+      if (saved === 'en') setLang('en');
+      // zh is already the default rendered state, nothing to do
+    }
+
     // Window resize handler
     window.addEventListener('resize', () => {
       echartsInstances.forEach(inst => {
@@ -847,6 +901,7 @@
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
+      initLang();
       refreshAll();
       startAutoRefresh();
     });
