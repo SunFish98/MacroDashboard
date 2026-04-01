@@ -247,8 +247,9 @@ def _print_banner():
     print("=" * 64 + "\n")
 
 
-def main():
-    _print_banner()
+def _start_background_services():
+    """Start scheduler and initial data fetch. Called at import time so
+    gunicorn workers pick it up, and also when running directly."""
     _schedule_jobs()
     scheduler.start()
     logger.info("Background scheduler started.")
@@ -267,6 +268,13 @@ def main():
 
     threading.Thread(target=_initial_fetch, daemon=True).start()
 
+
+# Start background services when the module is imported (covers gunicorn).
+_start_background_services()
+
+
+def main():
+    _print_banner()
     app.run(
         host=config.FLASK_HOST,
         port=config.FLASK_PORT,

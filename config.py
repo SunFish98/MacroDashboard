@@ -109,5 +109,5 @@ FOMC_DATES_2026 = [
 # Flask / Server
 # ---------------------------------------------------------------------------
 FLASK_HOST = "0.0.0.0"
-FLASK_PORT = int(os.environ.get("FLASK_PORT", "5050"))
+FLASK_PORT = int(os.environ.get("PORT") or os.environ.get("FLASK_PORT", "5050"))
 DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() in ("1", "true", "yes")
