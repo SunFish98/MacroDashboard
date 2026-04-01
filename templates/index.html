@@ -247,11 +247,7 @@
       const diff = current - previous;
       const sign = diff >= 0 ? '+' : '';
       let color;
-      if (invertColor) {
-        color = diff > 0 ? 'text-red-400' : diff < 0 ? 'text-green-400' : 'text-yellow-400';
-      } else {
-        color = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-yellow-400';
-      }
+      color = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-yellow-400';
       const arrow = diff > 0 ? '&#9650;' : diff < 0 ? '&#9660;' : '&#9644;';
       return `<span class="${color}">${arrow} ${sign}${diff.toFixed(2)}</span>`;
     }
