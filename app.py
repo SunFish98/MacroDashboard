@@ -218,6 +218,23 @@ def api_status():
     return jsonify(cache.get_status())
 
 
+@app.route("/api/holidays")
+def api_holidays():
+    today = datetime.now(timezone.utc).date()
+    holidays = []
+    for h in config.MARKET_HOLIDAYS:
+        hdate = datetime.strptime(h["date"], "%Y-%m-%d").date()
+        days = (hdate - today).days
+        if days >= -1:  # include yesterday to show "today/yesterday" edge cases
+            holidays.append({
+                "date": h["date"],
+                "name_cn": h["name_cn"],
+                "name_en": h["name_en"],
+                "days_away": days,
+            })
+    return jsonify(holidays)
+
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------

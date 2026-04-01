@@ -184,7 +184,17 @@
       </div>
     </section>
 
-    <!-- Section 6: Truth Social -->
+    <!-- Section 6: Market Holidays -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        美股休市日历 <span class="text-xs text-gray-500 font-normal ml-2">US Market Holidays</span>
+      </h2>
+      <div id="holidayCalendar" class="glass-card rounded-xl p-4">
+        <div class="skeleton h-16 rounded-lg"></div>
+      </div>
+    </section>
+
+    <!-- Section 7: Truth Social -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
         特朗普社交媒体动态 <span class="text-xs text-gray-500 font-normal ml-2">Trump Truth Social</span>
@@ -331,6 +341,17 @@
         return data;
       } catch (e) {
         console.error('Truth Social fetch error:', e);
+        return null;
+      }
+    }
+
+    async function fetchHolidays() {
+      try {
+        const resp = await fetch('/api/holidays');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch (e) {
+        console.error('Holidays fetch error:', e);
         return null;
       }
     }
@@ -686,6 +707,63 @@
       feed.innerHTML = html;
     }
 
+    function renderHolidays(holidays) {
+      const el = document.getElementById('holidayCalendar');
+      if (!holidays || holidays.length === 0) {
+        el.innerHTML = '<p class="text-gray-500 text-sm">暂无即将到来的休市日 / No upcoming holidays</p>';
+        return;
+      }
+
+      // NFP falls on the first Friday of each month — detect if a holiday is NFP day
+      function isNFPDay(dateStr) {
+        const d = new Date(dateStr + 'T00:00:00');
+        return d.getDay() === 5 && d.getDate() <= 7; // Friday in first week
+      }
+
+      const upcoming = holidays.filter(h => h.days_away >= 0).slice(0, 8);
+      const past = holidays.filter(h => h.days_away < 0);
+
+      let html = '<div class="flex flex-wrap gap-3">';
+      upcoming.forEach(h => {
+        const isToday = h.days_away === 0;
+        const isTomorrow = h.days_away === 1;
+        const isThisWeek = h.days_away <= 7;
+        const nfp = isNFPDay(h.date);
+
+        let urgency = 'border-gray-700/40 bg-gray-800/30';
+        let dayLabel = `${h.days_away} 天后`;
+        if (isToday) { urgency = 'border-red-500/60 bg-red-500/10'; dayLabel = '今天 Today'; }
+        else if (isTomorrow) { urgency = 'border-orange-500/60 bg-orange-500/10'; dayLabel = '明天 Tomorrow'; }
+        else if (isThisWeek) { urgency = 'border-yellow-500/40 bg-yellow-500/5'; dayLabel = `${h.days_away} 天后`; }
+
+        const nfpBadge = nfp ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold">⚠ 非农日</span>` : '';
+
+        html += `
+          <div class="flex-none rounded-xl border ${urgency} p-3 min-w-[160px]">
+            <div class="text-xs text-gray-400 mb-0.5">${h.date}</div>
+            <div class="text-sm font-semibold text-gray-100">${h.name_cn}${nfpBadge}</div>
+            <div class="text-[10px] text-gray-500 mt-0.5">${h.name_en}</div>
+            <div class="text-xs mt-2 font-medium ${isToday ? 'text-red-400' : isTomorrow ? 'text-orange-400' : isThisWeek ? 'text-yellow-400' : 'text-gray-500'}">
+              休市${isToday ? '' : '：' + dayLabel}
+            </div>
+          </div>`;
+      });
+
+      if (past.length > 0) {
+        const last = past[past.length - 1];
+        html += `
+          <div class="flex-none rounded-xl border border-gray-700/20 bg-gray-800/10 p-3 min-w-[160px] opacity-40">
+            <div class="text-xs text-gray-500 mb-0.5">${last.date}</div>
+            <div class="text-sm text-gray-400">${last.name_cn}</div>
+            <div class="text-[10px] text-gray-600">${last.name_en}</div>
+            <div class="text-xs mt-2 text-gray-600">已过</div>
+          </div>`;
+      }
+
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
     // ============================================================
     // Auto-Refresh & Init
     // ============================================================
@@ -696,10 +774,11 @@
       setTimeout(() => { icon.style.transform = ''; }, 600);
 
       try {
-        const [macroData, fedData, truthData] = await Promise.all([
+        const [macroData, fedData, truthData, holidayData] = await Promise.all([
           fetchMacroData(),
           fetchFedWatch(),
-          fetchTruthSocial()
+          fetchTruthSocial(),
+          fetchHolidays()
         ]);
 
         disposeAllCharts();
@@ -725,6 +804,7 @@
         }
 
         renderFedWatch(fedData);
+        renderHolidays(holidayData);
         renderTruthSocial(truthData);
         updateLastRefresh();
       } catch (e) {

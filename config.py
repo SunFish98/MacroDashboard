@@ -81,6 +81,34 @@ for _cat, _series in FRED_SERIES.items():
         SERIES_DISPLAY_MODE[_sid] = _mode
 
 # ---------------------------------------------------------------------------
+# US Stock Market Holidays (NYSE / NASDAQ closures)
+# ---------------------------------------------------------------------------
+MARKET_HOLIDAYS = [
+    # 2025
+    {"date": "2025-01-01", "name_cn": "元旦",         "name_en": "New Year's Day"},
+    {"date": "2025-01-20", "name_cn": "马丁·路德·金纪念日", "name_en": "MLK Day"},
+    {"date": "2025-02-17", "name_cn": "总统日",        "name_en": "Presidents' Day"},
+    {"date": "2025-04-18", "name_cn": "耶稣受难日",    "name_en": "Good Friday"},
+    {"date": "2025-05-26", "name_cn": "阵亡将士纪念日","name_en": "Memorial Day"},
+    {"date": "2025-06-19", "name_cn": "六月节",        "name_en": "Juneteenth"},
+    {"date": "2025-07-04", "name_cn": "独立日",        "name_en": "Independence Day"},
+    {"date": "2025-09-01", "name_cn": "劳动节",        "name_en": "Labor Day"},
+    {"date": "2025-11-27", "name_cn": "感恩节",        "name_en": "Thanksgiving"},
+    {"date": "2025-12-25", "name_cn": "圣诞节",        "name_en": "Christmas Day"},
+    # 2026
+    {"date": "2026-01-01", "name_cn": "元旦",         "name_en": "New Year's Day"},
+    {"date": "2026-01-19", "name_cn": "马丁·路德·金纪念日", "name_en": "MLK Day"},
+    {"date": "2026-02-16", "name_cn": "总统日",        "name_en": "Presidents' Day"},
+    {"date": "2026-04-03", "name_cn": "耶稣受难日",    "name_en": "Good Friday"},
+    {"date": "2026-05-25", "name_cn": "阵亡将士纪念日","name_en": "Memorial Day"},
+    {"date": "2026-06-19", "name_cn": "六月节",        "name_en": "Juneteenth"},
+    {"date": "2026-07-03", "name_cn": "独立日（补休）","name_en": "Independence Day (obs.)"},
+    {"date": "2026-09-07", "name_cn": "劳动节",        "name_en": "Labor Day"},
+    {"date": "2026-11-26", "name_cn": "感恩节",        "name_en": "Thanksgiving"},
+    {"date": "2026-12-25", "name_cn": "圣诞节",        "name_en": "Christmas Day"},
+]
+
+# ---------------------------------------------------------------------------
 # FOMC Meeting Dates (two-day meetings, listed as start-end)
 # ---------------------------------------------------------------------------
 FOMC_DATES_2025 = [
