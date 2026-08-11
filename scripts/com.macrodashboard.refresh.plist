@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Template — install via scripts/install_mac_refresh.sh, which fills
+       in __REPO_DIR__ / __HOME__ and loads it into launchd. -->
+  <key>Label</key>
+  <string>com.macrodashboard.refresh</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd "__REPO_DIR__" &amp;&amp; /usr/bin/env python3 scripts/refresh_snapshots.py --push</string>
+  </array>
+
+  <!-- Every hour, plus once when the Mac logs in / wakes with the job loaded -->
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/macrodashboard-refresh.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/macrodashboard-refresh.log</string>
+</dict>
+</plist>

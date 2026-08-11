@@ -215,6 +215,26 @@ curl http://localhost:5050/api/truthsocial > cache/truthsocial.json
 
 Or simply let the dashboard run — it will automatically use live data when available and fall back to cache when not.
 
+### Automated snapshot refresh (for cloud deployments)
+
+Cloud IPs are blocked by Truth Social and CME, so a cloud deployment shows the committed snapshots. To keep them fresh automatically, run the refresher on a home machine (residential IP) — it fetches both sources live, writes the snapshots, and commits + pushes **only when a live fetch succeeded and the content changed**. If your cloud host auto-deploys on push (e.g. a Cloud Build trigger), the deployed site then lags the real feeds by at most an hour.
+
+macOS one-time install (an hourly [launchd](https://support.apple.com/guide/terminal/script-management-with-launchd-apdc6c1077b-5d5d-4d35-9c19-60f2397b2369/mac) job):
+
+```bash
+git push          # once, so Keychain stores credentials for non-interactive pushes
+bash scripts/install_mac_refresh.sh
+launchctl start com.macrodashboard.refresh   # optional: run immediately
+tail -f ~/Library/Logs/macrodashboard-refresh.log
+```
+
+Notes:
+
+- The job pushes to **whatever branch the local clone has checked out** — make sure it matches the branch your cloud trigger deploys.
+- The Mac must be awake for the job to fire (launchd catches up after wake, but not while sleeping). For an always-fresh feed, keep it plugged in with sleep disabled, or run the equivalent cron line (printed by the installer) on any always-on Linux box.
+- Manual one-shot run: `python3 scripts/refresh_snapshots.py --push`
+- Uninstall: `launchctl unload ~/Library/LaunchAgents/com.macrodashboard.refresh.plist && rm ~/Library/LaunchAgents/com.macrodashboard.refresh.plist`
+
 ## License
 
 MIT
