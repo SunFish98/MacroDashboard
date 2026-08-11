@@ -26,6 +26,7 @@ from dateutil import parser as dateutil_parser
 
 import config
 from credit_monitor import CreditMonitorFetcher
+from memory_monitor import MemoryMonitorFetcher
 
 # Directory containing cached fallback data (JSON snapshots)
 _CACHE_DIR = Path(__file__).parent / "cache"
@@ -696,11 +697,13 @@ class DataCache:
         self._fedwatch_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["fedwatch"])
         self._truth_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["truthsocial"])
         self._credit_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["credit"])
+        self._memory_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["memory"])
 
         self.fred = FREDFetcher()
         self.fedwatch = FedWatchFetcher()
         self.truth = TruthSocialFetcher()
         self.credit = CreditMonitorFetcher()
+        self.memory = MemoryMonitorFetcher()
 
         # Track last successful fetch times and errors
         self.status: dict[str, Any] = {
@@ -708,6 +711,7 @@ class DataCache:
             "fedwatch": {"last_fetch": None, "error": None},
             "truthsocial": {"last_fetch": None, "error": None},
             "credit": {"last_fetch": None, "error": None},
+            "memory": {"last_fetch": None, "error": None},
         }
 
     # ------------------------------------------------------------------
@@ -800,6 +804,28 @@ class DataCache:
             logger.exception("Failed to refresh credit monitor data")
             with self._lock:
                 self.status["credit"]["error"] = str(exc)
+            return {"error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Memory Spot Monitor
+    # ------------------------------------------------------------------
+    def get_memory(self, force: bool = False) -> dict:
+        with self._lock:
+            if not force and "data" in self._memory_cache:
+                return self._memory_cache["data"]
+        return self.refresh_memory()
+
+    def refresh_memory(self) -> dict:
+        try:
+            data = self.memory.build_snapshot(refresh=True)
+            with self._lock:
+                self._memory_cache["data"] = data
+                self.status["memory"] = {"last_fetch": self._now_iso(), "error": None}
+            return data
+        except Exception as exc:
+            logger.exception("Failed to refresh memory monitor data")
+            with self._lock:
+                self.status["memory"]["error"] = str(exc)
             return {"error": str(exc)}
 
     # ------------------------------------------------------------------

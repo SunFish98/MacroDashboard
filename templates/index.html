@@ -207,6 +207,17 @@
       </div>
     </section>
 
+    <!-- Section 6b: Memory Spot Prices -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        <span data-zh="存储芯片价格" data-en="Memory Spot Prices">存储芯片价格</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="Memory Spot Prices · Storage Cycle" data-en="Storage Cycle Tracker">Memory Spot Prices · Storage Cycle</span>
+        <a href="https://www.dramexchange.com/" target="_blank" class="ml-3 text-[10px] text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5 font-normal">DRAMeXchange &rarr;</a>
+      </h2>
+      <div id="memoryMonitorSection" class="glass-card rounded-xl p-4">
+        <div class="skeleton h-40 rounded-lg"></div>
+      </div>
+    </section>
+
     <!-- Section 7: Truth Social -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
@@ -369,6 +380,17 @@
         return await resp.json();
       } catch (e) {
         console.error('Credit monitor fetch error:', e);
+        return null;
+      }
+    }
+
+    async function fetchMemory() {
+      try {
+        const resp = await fetch('/api/memory');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch (e) {
+        console.error('Memory monitor fetch error:', e);
         return null;
       }
     }
@@ -880,6 +902,72 @@
     }
 
     // ============================================================
+    // Memory Spot Monitor
+    // ============================================================
+    function renderMemoryMonitor(data) {
+      const el = document.getElementById('memoryMonitorSection');
+      if (!el) return;
+      if (!data || data.error) {
+        el.innerHTML = `<p class="text-sm text-gray-500">${T('存储价格数据暂不可用', 'Memory price data unavailable')}${data && data.error ? ': ' + data.error : ''}</p>`;
+        return;
+      }
+
+      // Memory-cycle convention: red = spot prices falling = cycle rolling over
+      const fmtDelta = (v) => {
+        if (v == null) return '<span class="text-gray-600">--</span>';
+        const color = v < 0 ? 'text-red-400' : v > 0 ? 'text-green-400' : 'text-yellow-400';
+        return `<span class="${color}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+      };
+
+      let html = '';
+      (data.alerts || []).forEach(a => {
+        html += `
+          <div class="flex items-start gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/5 px-3 py-2 mb-2">
+            <span class="text-xs font-bold text-yellow-400">${a.level}</span>
+            <span class="text-xs text-gray-300">${a.message}</span>
+          </div>`;
+      });
+      if (!data.alerts || data.alerts.length === 0) {
+        html += `<p class="text-xs text-gray-500 mb-2">${T('无预警信号 — 现货动能未破坏', 'No alerts — spot momentum intact')}</p>`;
+      }
+
+      html += `
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-gray-500 border-b border-gray-700/50">
+              <th class="text-left py-1.5 pr-2 font-medium">${T('产品', 'Series')}</th>
+              <th class="text-right py-1.5 px-2 font-medium">${T('现货价', 'Level')}</th>
+              <th class="text-right py-1.5 px-2 font-medium">&Delta;1w</th>
+              <th class="text-right py-1.5 px-2 font-medium">&Delta;1m</th>
+              <th class="text-right py-1.5 px-2 font-medium">&Delta;3m</th>
+              <th class="text-left py-1.5 pl-2 font-medium">${T('备注', 'Note')}</th>
+            </tr>
+          </thead><tbody>`;
+      (data.series || []).forEach(row => {
+        const level = row.level == null ? '--'
+          : row.unit === 'index' ? row.level.toLocaleString('en-US', {maximumFractionDigits: 0})
+          : '$' + row.level.toFixed(2);
+        const notes = [];
+        if (row.accelerating) notes.push(`<span class="text-green-400">${T('涨速加快', 'accelerating')}</span>`);
+        if (row.rolling_over) notes.push(`<span class="text-orange-400 font-semibold">${T('见顶回落信号', 'ROLLING OVER')}</span>`);
+        if (row.stale && row.last_date) notes.push(`<span class="text-yellow-500">${T('数据截至', 'as of')} ${row.last_date}</span>`);
+        html += `
+          <tr class="border-b border-gray-800/40">
+            <td class="py-1.5 pr-2 text-gray-300">${row.name}</td>
+            <td class="py-1.5 px-2 text-right text-gray-100 font-medium">${level}</td>
+            <td class="py-1.5 px-2 text-right">${fmtDelta(row.d1w)}</td>
+            <td class="py-1.5 px-2 text-right">${fmtDelta(row.d1m)}</td>
+            <td class="py-1.5 px-2 text-right">${fmtDelta(row.d3m)}</td>
+            <td class="py-1.5 pl-2">${notes.join(' · ')}</td>
+          </tr>`;
+      });
+      html += '</tbody></table></div>';
+      html += `<p class="mt-2 text-[10px] text-gray-600">${T('现货价领先合同价，看动能不看水平；周期尾声的确认信号是合同价涨幅收窄 + 厂商库存回升', 'Spot leads contract at inflections — watch momentum, not level; the confirm is contract-price deceleration + vendor inventory build')}</p>`;
+      el.innerHTML = html;
+    }
+
+    // ============================================================
     // Auto-Refresh & Init
     // ============================================================
     async function refreshAll() {
@@ -889,14 +977,15 @@
       setTimeout(() => { icon.style.transform = ''; }, 600);
 
       try {
-        const [macroData, fedData, truthData, holidayData, creditData] = await Promise.all([
+        const [macroData, fedData, truthData, holidayData, creditData, memoryData] = await Promise.all([
           fetchMacroData(),
           fetchFedWatch(),
           fetchTruthSocial(),
           fetchHolidays(),
-          fetchCredit()
+          fetchCredit(),
+          fetchMemory()
         ]);
-        _cache.macro = macroData; _cache.fed = fedData; _cache.truth = truthData; _cache.holidays = holidayData; _cache.credit = creditData;
+        _cache.macro = macroData; _cache.fed = fedData; _cache.truth = truthData; _cache.holidays = holidayData; _cache.credit = creditData; _cache.memory = memoryData;
 
         disposeAllCharts();
 
@@ -924,6 +1013,7 @@
         renderHolidays(holidayData);
         renderTruthSocial(truthData);
         renderCreditMonitor(creditData);
+        renderMemoryMonitor(memoryData);
         updateLastRefresh();
       } catch (e) {
         console.error('Refresh error:', e);
@@ -988,6 +1078,7 @@
       renderHolidays(_cache.holidays);
       renderTruthSocial(_cache.truth);
       renderCreditMonitor(_cache.credit);
+      renderMemoryMonitor(_cache.memory);
       setConnectionStatus(isConnected);
     }
 

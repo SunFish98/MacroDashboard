@@ -13,6 +13,7 @@ A self-hosted, real-time macroeconomic monitoring dashboard built with Python/Fl
 - **Housing** — Housing Starts, Building Permits, New/Existing Home Sales
 - **Fed Watch** — Current Federal Funds Rate, FOMC meeting calendar, countdown to next meeting, rate probability heatmap from CME FedWatch
 - **Credit Monitor** — AI-cycle credit risk early warning: IG/HY/BBB OAS spreads (FRED), LQD/HYG proxies, delta/acceleration signals, config-driven WARN/ALERT thresholds incl. a credit-vs-QQQ "2007-style divergence" flag
+- **Memory Spot Prices** — storage-cycle tracker: DXI index, DDR5 16Gb, NAND TLC wafer spot prices scraped from DRAMeXchange, with weekly/monthly momentum and rollover (cycle-top) warnings
 - **Trump Truth Social** — Latest posts with timestamps and engagement metrics (replies, reblogs, favorites)
 - **Auto-refresh** — Background scheduler fetches new data on configurable intervals; frontend polls every 60 seconds
 - **Sparkline charts** — Inline trend charts for each indicator via ECharts
@@ -98,6 +99,7 @@ To add or remove indicators, edit the `FRED_SERIES` dict in `config.py`.
 | `GET /api/fedwatch` | Fed rate, FOMC calendar, rate probabilities (JSON) |
 | `GET /api/truthsocial` | Latest Truth Social posts (JSON) |
 | `GET /api/credit` | Credit monitor snapshot: series, signals, alerts, CDS readings (JSON) |
+| `GET /api/memory` | Memory spot price snapshot: series, momentum signals, alerts (JSON) |
 | `GET /api/status` | Data source health and last fetch times (JSON) |
 
 ## Data Source Details
@@ -170,6 +172,24 @@ python credit_monitor.py
 ```bash
 python -m unittest discover tests
 ```
+
+### Memory Spot Price Monitor (storage-cycle tracker)
+
+Tracks DRAM/NAND spot prices as a daily thermometer for the memory cycle. Spot prices lead contract prices at inflections, so the monitor watches **momentum** (weekly change and whether it is accelerating or rolling over), not levels. Caveats worth remembering: the spot market is a small slice of total volume, HBM has no spot market at all, and the cycle-top *confirmation* is contract-price deceleration plus vendor inventory build — spot rolling over is the early warning, not the verdict.
+
+**Series** (configured in `MEMORY_SERIES` in `config.py`): DXI index, DDR5 16Gb 4800/5600, NAND 512Gb/256Gb TLC wafers, and legacy 2Gb SLC. All scraped from [dramexchange.com](https://www.dramexchange.com/) (session-average spot; no API key, and DRAMeXchange does not block cloud IPs).
+
+**Storage**: append-only JSON at `cache/memory_history.json`, **committed to git** — unlike the credit history there is no backfill API, so history only survives ephemeral cloud disks if the repo carries it. The `scripts/refresh_snapshots.py` job appends the day's prices and pushes on change. Manual point-in-time entries (e.g. from published price reports):
+
+```bash
+python memory_monitor.py add DDR5_16G 51.60 2026-08-07
+```
+
+**Signals**: Δ1w / Δ1m / Δ3m over calendar windows (sparse-data-safe: a delta is only reported if a base observation exists within 2× the window), plus `accelerating` (weekly gains speeding up) and `rolling_over` (down on the week while still up on the month — the earliest cycle-top pattern).
+
+**Alerts** (tune in `MEMORY_ALERT_THRESHOLDS` in `config.py`): WARN when a series falls more than `weekly_drop_pct` (default −2%) in a week, or when the weekly change turns negative while the monthly change is still above `rollover_monthly_min_pct` (default +2%) — a fresh rollover.
+
+**Run standalone**: `python memory_monitor.py` scrapes once and prints the compact digest.
 
 ### Optional: Playwright for blocked IPs
 

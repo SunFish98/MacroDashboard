@@ -29,8 +29,13 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from data_fetchers import FedWatchFetcher, TruthSocialFetcher  # noqa: E402
+from memory_monitor import MemoryMonitorFetcher  # noqa: E402
 
-SNAPSHOT_FILES = ["cache/truthsocial.json", "cache/fedwatch.json"]
+SNAPSHOT_FILES = [
+    "cache/truthsocial.json",
+    "cache/fedwatch.json",
+    "cache/memory_history.json",
+]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("refresh-snapshots")
@@ -81,6 +86,31 @@ def refresh_fedwatch() -> bool:
     return True
 
 
+def refresh_memory_prices() -> bool:
+    """Scrape DRAMeXchange and append today's spot prices to the committed
+    history file. The cloud can scrape too, but its disk is ephemeral —
+    only observations committed here survive redeploys."""
+    fetcher = MemoryMonitorFetcher()
+    try:
+        prices = fetcher.fetch_spot_prices()
+    except Exception as exc:
+        logger.warning("DRAMeXchange fetch failed — keeping existing history: %s", exc)
+        return False
+    if not prices:
+        logger.warning("DRAMeXchange scrape returned no rows — keeping existing history.")
+        return False
+    from datetime import datetime as _dt
+    today = _dt.now(timezone.utc).strftime("%Y-%m-%d")
+    added = sum(
+        fetcher.store.append_observations(sid, {today: value})
+        for sid, value in prices.items()
+    )
+    fetcher.store.save()
+    logger.info("Memory spot history: %d series scraped, %d new observations.",
+                len(prices), added)
+    return added > 0
+
+
 def _git(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", "-C", str(REPO), *args], capture_output=True, text=True
@@ -115,7 +145,7 @@ def main() -> int:
                         help="git commit + push the snapshots if they changed")
     args = parser.parse_args()
 
-    updated_any = refresh_truthsocial() | refresh_fedwatch()
+    updated_any = refresh_truthsocial() | refresh_fedwatch() | refresh_memory_prices()
     if args.push:
         commit_and_push()
     elif updated_any:
