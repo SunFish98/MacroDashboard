@@ -143,6 +143,49 @@ CREDIT_ALERT_THRESHOLDS = {
 }
 
 # ---------------------------------------------------------------------------
+# Memory Spot Price Monitor (storage-cycle tracker)
+#
+# Tracks DRAM/NAND spot prices from DRAMeXchange as a daily thermometer for
+# the memory cycle. Spot leads contract prices at inflections; the signal
+# to watch is momentum (weekly change and its acceleration), not level.
+# ---------------------------------------------------------------------------
+
+# Series to track. Each entry: series_id -> (display_name, row_label_prefix)
+# row_label_prefix matches the "Item" cell on dramexchange.com's spot tables
+# (None = the DXI index, parsed separately).
+MEMORY_SERIES: dict[str, tuple[str, str | None]] = {
+    "DXI":         ("DXI Index", None),
+    "DDR5_16G":    ("DDR5 16Gb 4800/5600", "DDR5 16Gb (2Gx8) 4800/5600"),
+    "NAND_512G":   ("NAND 512Gb TLC wafer", "512Gb TLC"),
+    "NAND_256G":   ("NAND 256Gb TLC wafer", "256Gb TLC"),
+    "NAND_2G_SLC": ("NAND 2Gb SLC (legacy)", "SLC 2Gb 256MBx8"),
+}
+
+# Append-only observation store. Committed to git (unlike credit history)
+# because there is no backfill API — history only exists if we keep it, and
+# cloud disks are ephemeral. The scripts/refresh_snapshots.py job pushes it.
+MEMORY_HISTORY_FILE = "cache/memory_history.json"
+
+# Sanity ranges for scraped values (reject obvious parse garbage).
+MEMORY_SANITY_RANGE = {
+    "DXI": (10_000.0, 10_000_000.0),
+    "_default": (0.5, 2000.0),   # USD spot prices
+}
+
+MEMORY_ALERT_THRESHOLDS = {
+    # WARN if a series falls more than this (%) over ~1 week — spot prices
+    # rolling over is the earliest cycle-top warning.
+    "weekly_drop_pct": -2.0,
+    # WARN "cycle rollover": weekly change negative while the ~1-month
+    # change is still above this (%) — the turn is fresh, not old news.
+    "rollover_monthly_min_pct": 2.0,
+    # Observations older than this many calendar days are flagged stale.
+    "stale_after_days": 7,
+}
+REFRESH_INTERVALS["memory"] = 3600
+CACHE_TTL["memory"] = 3600
+
+# ---------------------------------------------------------------------------
 # US Stock Market Holidays (NYSE / NASDAQ closures)
 # ---------------------------------------------------------------------------
 MARKET_HOLIDAYS = [
