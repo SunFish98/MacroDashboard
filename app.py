@@ -71,6 +71,11 @@ def _schedule_jobs():
         seconds=config.REFRESH_INTERVALS["truthsocial"],
         id="refresh_truthsocial", replace_existing=True,
     )
+    scheduler.add_job(
+        cache.refresh_credit, "interval",
+        seconds=config.REFRESH_INTERVALS["credit"],
+        id="refresh_credit", replace_existing=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +218,11 @@ def api_truthsocial():
     return jsonify(_normalize_truthsocial(data))
 
 
+@app.route("/api/credit")
+def api_credit():
+    return jsonify(cache.get_credit())
+
+
 @app.route("/api/status")
 def api_status():
     return jsonify(cache.get_status())
@@ -256,6 +266,7 @@ def _print_banner():
     print(f"    Macro API : http://localhost:{config.FLASK_PORT}/api/macro")
     print(f"    FedWatch  : http://localhost:{config.FLASK_PORT}/api/fedwatch")
     print(f"    Truth Soc : http://localhost:{config.FLASK_PORT}/api/truthsocial")
+    print(f"    Credit    : http://localhost:{config.FLASK_PORT}/api/credit")
     print(f"    Status    : http://localhost:{config.FLASK_PORT}/api/status")
     print()
     print("  Refresh intervals:")
@@ -276,6 +287,7 @@ def _start_background_services():
             ("macro", cache.refresh_macro),
             ("fedwatch", cache.refresh_fedwatch),
             ("truthsocial", cache.refresh_truthsocial),
+            ("credit", cache.refresh_credit),
         ]:
             try:
                 fn()

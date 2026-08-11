@@ -21,6 +21,7 @@ REFRESH_INTERVALS = {
     "macro": 900,        # 15 minutes
     "fedwatch": 1800,    # 30 minutes
     "truthsocial": 300,  # 5 minutes
+    "credit": 3600,      # 60 minutes (FRED spread data updates once a day, T+1)
 }
 
 # ---------------------------------------------------------------------------
@@ -30,6 +31,7 @@ CACHE_TTL = {
     "macro": 900,
     "fedwatch": 1800,
     "truthsocial": 300,
+    "credit": 3600,
 }
 
 # ---------------------------------------------------------------------------
@@ -79,6 +81,66 @@ for _cat, _series in FRED_SERIES.items():
     for _sid, (_name, _mode) in _series.items():
         SERIES_NAME_MAP[_sid] = _name
         SERIES_DISPLAY_MODE[_sid] = _mode
+
+# ---------------------------------------------------------------------------
+# Credit Risk Monitor (AI-cycle credit stress early warning)
+#
+# Thesis: credit markets reprice risk before equity markets do. Track index
+# OAS spreads (FRED) + credit ETF proxies as an early-warning signal for
+# stress in AI infrastructure debt. Uses the same FRED_API_KEY as above.
+# ---------------------------------------------------------------------------
+
+# FRED credit-spread series. Values arrive as OAS in PERCENT; the monitor
+# converts them to basis points. Each entry: series_id -> display_name.
+CREDIT_FRED_SERIES: dict[str, str] = {
+    "BAMLC0A0CM":   "IG Corp OAS",   # ICE BofA US Corporate Index OAS (investment grade)
+    "BAMLH0A0HYM2": "HY OAS",        # ICE BofA US High Yield OAS
+    "BAMLC0A4CBBB": "BBB OAS",       # ICE BofA BBB US Corporate Index OAS
+}
+
+# Real-time credit-risk ETF proxies (daily close; Yahoo chart API with a
+# Stooq CSV fallback — no API key needed). Signals are % changes, not bp.
+CREDIT_ETF_PROXIES: list[str] = ["LQD", "HYG"]
+
+# Equity benchmark used for the divergence signal (credit widening while
+# equities are flat/up = "2007-style divergence").
+CREDIT_EQUITY_BENCHMARK = "QQQ"
+
+# Single-name CDS entities of interest (5Y CDS, bp). There is no free CDS
+# API; observations are stored point-in-time with source attribution when
+# available (see README — automated news scraping is currently not wired up).
+CREDIT_CDS_ENTITIES: list[str] = ["NVDA", "ORCL", "GOOGL", "META", "AMZN"]
+
+# How much FRED history to backfill on first run (calendar days).
+CREDIT_BACKFILL_DAYS = 730  # ~2 years so deltas work immediately
+
+# Append-only observation store (JSON, keyed by series -> date -> value).
+CREDIT_HISTORY_FILE = "cache/credit_history.json"
+
+# Alert thresholds — tune here, not in code.
+CREDIT_ALERT_THRESHOLDS = {
+    # Rolling window for widening checks, in TRADING days.
+    "window_trading_days": 5,
+    # WARN if the series widens by more than this many bp within the window.
+    "spread_widening_bp": {
+        "BAMLC0A4CBBB": 20.0,   # BBB OAS
+        "BAMLH0A0HYM2": 50.0,   # HY OAS
+    },
+    # WARN if a single-name 5Y CDS observation exceeds this level (bp).
+    "cds_level_bp": {
+        "NVDA": 100.0,
+        "ORCL": 250.0,
+    },
+    # WARN if any single name widens more than this (bp) vs its previous
+    # observation (only applied when the two observations are <= 3 days apart).
+    "cds_1d_widening_bp": 15.0,
+    # Divergence: a spread WARN escalates to ALERT ("2007-style divergence")
+    # when the equity benchmark's return over the same window is >= this (%).
+    "divergence_equity_flat_pct": 0.0,
+    # Observations older than this many calendar days are flagged stale
+    # (FRED publishes T+1, so weekends/holidays must not trip this).
+    "stale_after_days": 5,
+}
 
 # ---------------------------------------------------------------------------
 # US Stock Market Holidays (NYSE / NASDAQ closures)

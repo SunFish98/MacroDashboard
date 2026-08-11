@@ -1,4 +1,5 @@
 venv/
+cache/credit_history.json
 __pycache__/
 *.pyc
 *.pyo
