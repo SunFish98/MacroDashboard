@@ -807,8 +807,10 @@
 
       const fmtDelta = (v, unit) => {
         if (v == null) return '<span class="text-gray-600">--</span>';
-        // Credit convention: widening spreads (up) = risk = red
-        const color = v > 0 ? 'text-red-400' : v < 0 ? 'text-green-400' : 'text-yellow-400';
+        // Credit convention: red = risk rising. Spreads (bp): widening (up)
+        // is risk. Bond ETF prices (%): falling is risk, so invert.
+        const risky = unit === '%' ? v < 0 : v > 0;
+        const color = v === 0 ? 'text-yellow-400' : risky ? 'text-red-400' : 'text-green-400';
         const txt = unit === '%' ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : `${v >= 0 ? '+' : ''}${v.toFixed(0)}bp`;
         return `<span class="${color}">${txt}</span>`;
       };
