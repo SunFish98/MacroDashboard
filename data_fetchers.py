@@ -25,6 +25,7 @@ from cachetools import TTLCache
 from dateutil import parser as dateutil_parser
 
 import config
+from credit_monitor import CreditMonitorFetcher
 
 # Directory containing cached fallback data (JSON snapshots)
 _CACHE_DIR = Path(__file__).parent / "cache"
@@ -694,16 +695,19 @@ class DataCache:
         self._macro_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["macro"])
         self._fedwatch_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["fedwatch"])
         self._truth_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["truthsocial"])
+        self._credit_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["credit"])
 
         self.fred = FREDFetcher()
         self.fedwatch = FedWatchFetcher()
         self.truth = TruthSocialFetcher()
+        self.credit = CreditMonitorFetcher()
 
         # Track last successful fetch times and errors
         self.status: dict[str, Any] = {
             "macro": {"last_fetch": None, "error": None},
             "fedwatch": {"last_fetch": None, "error": None},
             "truthsocial": {"last_fetch": None, "error": None},
+            "credit": {"last_fetch": None, "error": None},
         }
 
     # ------------------------------------------------------------------
@@ -774,6 +778,28 @@ class DataCache:
             logger.exception("Failed to refresh Truth Social data")
             with self._lock:
                 self.status["truthsocial"]["error"] = str(exc)
+            return {"error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Credit Monitor
+    # ------------------------------------------------------------------
+    def get_credit(self, force: bool = False) -> dict:
+        with self._lock:
+            if not force and "data" in self._credit_cache:
+                return self._credit_cache["data"]
+        return self.refresh_credit()
+
+    def refresh_credit(self) -> dict:
+        try:
+            data = self.credit.build_snapshot(refresh=True)
+            with self._lock:
+                self._credit_cache["data"] = data
+                self.status["credit"] = {"last_fetch": self._now_iso(), "error": None}
+            return data
+        except Exception as exc:
+            logger.exception("Failed to refresh credit monitor data")
+            with self._lock:
+                self.status["credit"]["error"] = str(exc)
             return {"error": str(exc)}
 
     # ------------------------------------------------------------------

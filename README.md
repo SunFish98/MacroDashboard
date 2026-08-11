@@ -12,6 +12,7 @@ A self-hosted, real-time macroeconomic monitoring dashboard built with Python/Fl
 - **PMI & Retail Sales** — ISM Manufacturing/Services PMI, Michigan Consumer Sentiment, Advance Retail Sales (MoM %)
 - **Housing** — Housing Starts, Building Permits, New/Existing Home Sales
 - **Fed Watch** — Current Federal Funds Rate, FOMC meeting calendar, countdown to next meeting, rate probability heatmap from CME FedWatch
+- **Credit Monitor** — AI-cycle credit risk early warning: IG/HY/BBB OAS spreads (FRED), LQD/HYG proxies, delta/acceleration signals, config-driven WARN/ALERT thresholds incl. a credit-vs-QQQ "2007-style divergence" flag
 - **Trump Truth Social** — Latest posts with timestamps and engagement metrics (replies, reblogs, favorites)
 - **Auto-refresh** — Background scheduler fetches new data on configurable intervals; frontend polls every 60 seconds
 - **Sparkline charts** — Inline trend charts for each indicator via ECharts
@@ -96,6 +97,7 @@ To add or remove indicators, edit the `FRED_SERIES` dict in `config.py`.
 | `GET /api/macro` | All macroeconomic indicators (JSON) |
 | `GET /api/fedwatch` | Fed rate, FOMC calendar, rate probabilities (JSON) |
 | `GET /api/truthsocial` | Latest Truth Social posts (JSON) |
+| `GET /api/credit` | Credit monitor snapshot: series, signals, alerts, CDS readings (JSON) |
 | `GET /api/status` | Data source health and last fetch times (JSON) |
 
 ## Data Source Details
@@ -125,6 +127,50 @@ Posts are fetched via Truth Social's Mastodon-compatible API:
 
 Like CME, Truth Social blocks most cloud IPs. The cached fallback ensures posts are always displayed.
 
+### Credit Risk Monitor (AI-cycle early warning)
+
+Thesis: credit markets reprice risk before equity markets do. The monitor tracks credit spreads as an early-warning signal for stress in AI infrastructure debt.
+
+**Data sources** (each degrades independently — a dead source never crashes the section, it falls back to stored history with a "stale data as of {date}" note):
+
+1. **FRED OAS series** (uses the same `FRED_API_KEY` as the macro section — register free at https://fred.stlouisfed.org/docs/api/api_key.html): `BAMLC0A0CM` (IG Corp OAS), `BAMLH0A0HYM2` (HY OAS), `BAMLC0A4CBBB` (BBB OAS). FRED publishes T+1; ~2 years of history is backfilled on first run so deltas work immediately.
+2. **ETF proxies** — daily closes for LQD and HYG (plus QQQ as the equity benchmark) via the Yahoo Finance chart API with a Stooq CSV fallback. No API key needed.
+3. **Single-name CDS (NVDA/ORCL/GOOGL/META/AMZN 5Y)** — there is no free CDS API, and this repo has no general news-search capability, so **automated news scraping of CDS quotes is not implemented**. The storage schema, sanity checks (5–2000bp), and alert logic for CDS observations are in place and unit-tested; readings can be added programmatically with source attribution:
+
+   ```python
+   from credit_monitor import CreditHistoryStore
+   store = CreditHistoryStore()
+   store.append_cds_observation("NVDA", 62.0, "2026-08-05", "https://source-article-url")
+   store.save()
+   ```
+
+**Storage**: append-only JSON at `cache/credit_history.json`, keyed by series → date (existing observations are never overwritten). The file is gitignored — it is a growing local data store, not a committed snapshot.
+
+**Signals** per series: current level, Δ1d / Δ1w / Δ1m (bp for spreads, % for ETFs), and an acceleration flag (is this week's risk move faster than last week's — first derivative over level). Windows are measured in trading days, so market holidays don't skew deltas.
+
+**Tuning thresholds** — all alert logic is config-driven via `CREDIT_ALERT_THRESHOLDS` in `config.py`:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `spread_widening_bp` | BBB: 20, HY: 50 | WARN if the series widens more than this (bp) within `window_trading_days` |
+| `window_trading_days` | 5 | Rolling window for widening checks |
+| `cds_level_bp` | NVDA: 100, ORCL: 250 | WARN if a single-name CDS reading exceeds this level |
+| `cds_1d_widening_bp` | 15 | WARN if any single name widens more than this vs its prior reading (≤3 days apart) |
+| `divergence_equity_flat_pct` | 0.0 | Spread WARN escalates to ALERT ("2007-style divergence") when QQQ's return over the same window is ≥ this |
+| `stale_after_days` | 5 | Observations older than this are flagged "stale data as of {date}" (absorbs FRED's T+1 lag + weekends/holidays) |
+
+**Run standalone** (prints the compact digest section without starting the server):
+
+```bash
+python credit_monitor.py
+```
+
+**Tests** (fixture-driven, covering deltas, acceleration, thresholds, and the divergence case):
+
+```bash
+python -m unittest discover tests
+```
+
 ### Optional: Playwright for blocked IPs
 
 If the direct API approaches fail and you want live data instead of cached snapshots:
@@ -141,12 +187,16 @@ Playwright attempts browser-based scraping as a middle fallback before using cac
 ```
 macro-dashboard/
 ├── app.py              # Flask app, routes, data normalization
-├── config.py           # All configuration (API keys, series, intervals)
+├── config.py           # All configuration (API keys, series, intervals, alert thresholds)
 ├── data_fetchers.py    # FREDFetcher, FedWatchFetcher, TruthSocialFetcher, DataCache
+├── credit_monitor.py   # Credit risk monitor: fetchers, signals, alerts, digest
 ├── requirements.txt    # Python dependencies
 ├── cache/
-│   ├── fedwatch.json       # Cached FedWatch rate probabilities
-│   └── truthsocial.json    # Cached Truth Social posts
+│   ├── fedwatch.json          # Cached FedWatch rate probabilities
+│   ├── truthsocial.json       # Cached Truth Social posts
+│   └── credit_history.json    # Append-only credit observations (gitignored, created on first run)
+├── tests/
+│   └── test_credit_monitor.py # Delta/alert/divergence unit tests
 └── templates/
     └── index.html      # Dashboard frontend (Tailwind + ECharts)
 ```

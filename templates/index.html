@@ -197,6 +197,16 @@
       </div>
     </section>
 
+    <!-- Section 6: Credit Monitor -->
+    <section class="mb-8">
+      <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
+        <span data-zh="信用风险监测" data-en="Credit Monitor">信用风险监测</span><span class="text-xs text-gray-500 font-normal ml-2" data-zh="Credit Monitor · AI-Cycle Early Warning" data-en="AI-Cycle Early Warning">Credit Monitor · AI-Cycle Early Warning</span>
+      </h2>
+      <div id="creditMonitorSection" class="glass-card rounded-xl p-4">
+        <div class="skeleton h-40 rounded-lg"></div>
+      </div>
+    </section>
+
     <!-- Section 7: Truth Social -->
     <section class="mb-8">
       <h2 class="section-title text-base font-semibold text-gray-200 mb-4">
@@ -348,6 +358,17 @@
         return data;
       } catch (e) {
         console.error('Truth Social fetch error:', e);
+        return null;
+      }
+    }
+
+    async function fetchCredit() {
+      try {
+        const resp = await fetch('/api/credit');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch (e) {
+        console.error('Credit monitor fetch error:', e);
         return null;
       }
     }
@@ -774,6 +795,89 @@
     }
 
     // ============================================================
+    // Credit Monitor
+    // ============================================================
+    function renderCreditMonitor(data) {
+      const el = document.getElementById('creditMonitorSection');
+      if (!el) return;
+      if (!data || data.error) {
+        el.innerHTML = `<p class="text-sm text-gray-500">${T('信用数据暂不可用', 'Credit data unavailable')}${data && data.error ? ': ' + data.error : ''}</p>`;
+        return;
+      }
+
+      const fmtDelta = (v, unit) => {
+        if (v == null) return '<span class="text-gray-600">--</span>';
+        // Credit convention: widening spreads (up) = risk = red
+        const color = v > 0 ? 'text-red-400' : v < 0 ? 'text-green-400' : 'text-yellow-400';
+        const txt = unit === '%' ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : `${v >= 0 ? '+' : ''}${v.toFixed(0)}bp`;
+        return `<span class="${color}">${txt}</span>`;
+      };
+
+      let html = '';
+
+      // Alerts on top
+      (data.alerts || []).forEach(a => {
+        const isAlert = a.level === 'ALERT';
+        html += `
+          <div class="flex items-start gap-2 rounded-lg border ${isAlert ? 'border-red-500/60 bg-red-500/10' : 'border-yellow-500/40 bg-yellow-500/5'} px-3 py-2 mb-2">
+            <span class="text-xs font-bold ${isAlert ? 'text-red-400' : 'text-yellow-400'}">${a.level}</span>
+            <span class="text-xs text-gray-300">${a.message}</span>
+          </div>`;
+      });
+      if (!data.alerts || data.alerts.length === 0) {
+        html += `<p class="text-xs text-gray-500 mb-2">${T('无预警信号', 'No alerts')}</p>`;
+      }
+
+      // Compact series table
+      html += `
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-gray-500 border-b border-gray-700/50">
+              <th class="text-left py-1.5 pr-2 font-medium">${T('指标', 'Series')}</th>
+              <th class="text-right py-1.5 px-2 font-medium">${T('水平', 'Level')}</th>
+              <th class="text-right py-1.5 px-2 font-medium">&Delta;1d</th>
+              <th class="text-right py-1.5 px-2 font-medium">&Delta;1w</th>
+              <th class="text-right py-1.5 px-2 font-medium">&Delta;1m</th>
+              <th class="text-left py-1.5 pl-2 font-medium">${T('备注', 'Note')}</th>
+            </tr>
+          </thead><tbody>`;
+      (data.series || []).forEach(row => {
+        const level = row.level == null ? '--'
+          : row.unit === 'bp' ? `${row.level.toFixed(0)}bp` : row.level.toFixed(2);
+        const notes = [];
+        if (row.accelerating) notes.push(`<span class="text-orange-400">${T('加速中', 'accelerating')}</span>`);
+        if (row.stale && row.last_date) notes.push(`<span class="text-yellow-500">${T('滞后数据截至', 'stale as of')} ${row.last_date}</span>`);
+        else if (row.stale) notes.push(`<span class="text-gray-600">${T('暂无数据', 'no data')}</span>`);
+        html += `
+          <tr class="border-b border-gray-800/40">
+            <td class="py-1.5 pr-2 text-gray-300">${row.name}</td>
+            <td class="py-1.5 px-2 text-right text-gray-100 font-medium">${level}</td>
+            <td class="py-1.5 px-2 text-right">${fmtDelta(row.d1, row.unit)}</td>
+            <td class="py-1.5 px-2 text-right">${fmtDelta(row.d1w, row.unit)}</td>
+            <td class="py-1.5 px-2 text-right">${fmtDelta(row.d1m, row.unit)}</td>
+            <td class="py-1.5 pl-2">${notes.join(' · ')}</td>
+          </tr>`;
+      });
+      html += '</tbody></table></div>';
+
+      // Latest single-name CDS readings (news-sourced)
+      if (data.cds && data.cds.length > 0) {
+        html += `<div class="mt-3 pt-2 border-t border-gray-800/40">
+          <p class="text-[10px] text-gray-500 mb-1">${T('单一名称 5Y CDS（新闻来源，时点观测）', 'Single-name 5Y CDS (news-sourced, point-in-time)')}</p>`;
+        data.cds.forEach(o => {
+          html += `<div class="text-xs text-gray-400 py-0.5">${o.entity} <span class="text-gray-100 font-medium">${o.spread_bp.toFixed(0)}bp</span> <span class="text-gray-600">${o.date}</span> <a href="${o.source_url}" target="_blank" class="text-blue-400 hover:text-blue-300">${T('来源', 'source')} &rarr;</a></div>`;
+        });
+        html += '</div>';
+      }
+
+      if (data.notes && data.notes.length > 0) {
+        html += `<div class="mt-2 text-[10px] text-gray-600">${data.notes.map(n => '· ' + n).join('<br>')}</div>`;
+      }
+      el.innerHTML = html;
+    }
+
+    // ============================================================
     // Auto-Refresh & Init
     // ============================================================
     async function refreshAll() {
@@ -783,13 +887,14 @@
       setTimeout(() => { icon.style.transform = ''; }, 600);
 
       try {
-        const [macroData, fedData, truthData, holidayData] = await Promise.all([
+        const [macroData, fedData, truthData, holidayData, creditData] = await Promise.all([
           fetchMacroData(),
           fetchFedWatch(),
           fetchTruthSocial(),
-          fetchHolidays()
+          fetchHolidays(),
+          fetchCredit()
         ]);
-        _cache.macro = macroData; _cache.fed = fedData; _cache.truth = truthData; _cache.holidays = holidayData;
+        _cache.macro = macroData; _cache.fed = fedData; _cache.truth = truthData; _cache.holidays = holidayData; _cache.credit = creditData;
 
         disposeAllCharts();
 
@@ -816,6 +921,7 @@
         renderFedWatch(fedData);
         renderHolidays(holidayData);
         renderTruthSocial(truthData);
+        renderCreditMonitor(creditData);
         updateLastRefresh();
       } catch (e) {
         console.error('Refresh error:', e);
@@ -879,6 +985,7 @@
       renderFedWatch(_cache.fed);
       renderHolidays(_cache.holidays);
       renderTruthSocial(_cache.truth);
+      renderCreditMonitor(_cache.credit);
       setConnectionStatus(isConnected);
     }
 
