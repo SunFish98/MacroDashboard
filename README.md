@@ -13,6 +13,7 @@ A self-hosted, real-time macroeconomic monitoring dashboard built with Python/Fl
 - **Housing** — Housing Starts, Building Permits, New/Existing Home Sales
 - **Fed Watch** — Current Federal Funds Rate, FOMC meeting calendar, countdown to next meeting, rate probability heatmap from CME FedWatch
 - **Credit Monitor** — AI-cycle credit risk early warning: IG/HY/BBB OAS spreads (FRED), LQD/HYG proxies, delta/acceleration signals, config-driven WARN/ALERT thresholds incl. a credit-vs-QQQ "2007-style divergence" flag
+- **Memory Spot Prices** — storage-cycle tracker: DXI index, DDR5 16Gb, NAND TLC wafer spot prices scraped from DRAMeXchange, with weekly/monthly momentum and rollover (cycle-top) warnings
 - **Trump Truth Social** — Latest posts with timestamps and engagement metrics (replies, reblogs, favorites)
 - **Auto-refresh** — Background scheduler fetches new data on configurable intervals; frontend polls every 60 seconds
 - **Sparkline charts** — Inline trend charts for each indicator via ECharts
@@ -98,6 +99,7 @@ To add or remove indicators, edit the `FRED_SERIES` dict in `config.py`.
 | `GET /api/fedwatch` | Fed rate, FOMC calendar, rate probabilities (JSON) |
 | `GET /api/truthsocial` | Latest Truth Social posts (JSON) |
 | `GET /api/credit` | Credit monitor snapshot: series, signals, alerts, CDS readings (JSON) |
+| `GET /api/memory` | Memory spot price snapshot: series, momentum signals, alerts (JSON) |
 | `GET /api/status` | Data source health and last fetch times (JSON) |
 
 ## Data Source Details
@@ -171,6 +173,24 @@ python credit_monitor.py
 python -m unittest discover tests
 ```
 
+### Memory Spot Price Monitor (storage-cycle tracker)
+
+Tracks DRAM/NAND spot prices as a daily thermometer for the memory cycle. Spot prices lead contract prices at inflections, so the monitor watches **momentum** (weekly change and whether it is accelerating or rolling over), not levels. Caveats worth remembering: the spot market is a small slice of total volume, HBM has no spot market at all, and the cycle-top *confirmation* is contract-price deceleration plus vendor inventory build — spot rolling over is the early warning, not the verdict.
+
+**Series** (configured in `MEMORY_SERIES` in `config.py`): DXI index, DDR5 16Gb 4800/5600, NAND 512Gb/256Gb TLC wafers, and legacy 2Gb SLC. All scraped from [dramexchange.com](https://www.dramexchange.com/) (session-average spot; no API key, and DRAMeXchange does not block cloud IPs).
+
+**Storage**: append-only JSON at `cache/memory_history.json`. There is no backfill API for spot prices, so history must be carried explicitly: the `scripts/refresh_snapshots.py` job appends the day's prices and publishes the file to the `snapshots` branch, and the app merges that published history at runtime (cloud disks are ephemeral — the committed file is just the seed). Manual point-in-time entries (e.g. from published price reports):
+
+```bash
+python memory_monitor.py add DDR5_16G 51.60 2026-08-07
+```
+
+**Signals**: Δ1w / Δ1m / Δ3m over calendar windows (sparse-data-safe: a delta is only reported if a base observation exists within 2× the window), plus `accelerating` (weekly gains speeding up) and `rolling_over` (down on the week while still up on the month — the earliest cycle-top pattern).
+
+**Alerts** (tune in `MEMORY_ALERT_THRESHOLDS` in `config.py`): WARN when a series falls more than `weekly_drop_pct` (default −2%) in a week, or when the weekly change turns negative while the monthly change is still above `rollover_monthly_min_pct` (default +2%) — a fresh rollover.
+
+**Run standalone**: `python memory_monitor.py` scrapes once and prints the compact digest.
+
 ### Optional: Playwright for blocked IPs
 
 If the direct API approaches fail and you want live data instead of cached snapshots:
@@ -217,7 +237,11 @@ Or simply let the dashboard run — it will automatically use live data when ava
 
 ### Automated snapshot refresh (for cloud deployments)
 
-Cloud IPs are blocked by Truth Social and CME, so a cloud deployment shows the committed snapshots. To keep them fresh automatically, run the refresher on a home machine (residential IP) — it fetches both sources live, writes the snapshots, and commits + pushes **only when a live fetch succeeded and the content changed**. If your cloud host auto-deploys on push (e.g. a Cloud Build trigger), the deployed site then lags the real feeds by at most an hour.
+Cloud IPs are blocked by Truth Social and CME, so a cloud deployment cannot fetch those feeds itself. To keep them fresh, run the refresher on a home machine (residential IP) — it fetches the sources live, writes the snapshot files, and **publishes them to a dedicated `snapshots` branch** (a single force-pushed orphan commit; the branch never grows).
+
+The deployed app fetches those snapshots **at runtime** from `SNAPSHOT_REMOTE_BASE` (default: the repo's raw GitHub URL for the `snapshots` branch, configurable via env var — requires the repo to be public, or point it at any URL you host the files on). The committed files in `cache/` remain as a last-resort fallback when that URL is unreachable.
+
+> **Why not just push to main?** An earlier version of this job committed snapshots to the deployed branch. With a Cloud Build trigger watching that branch, every hourly data update rebuilt and stored a new ~200MB container image — hundreds of images and real Artifact Registry storage/egress charges within weeks, for zero code change. Data updates and deploys must stay decoupled: pushes to `snapshots` match no deploy trigger, and the app picks the data up over HTTP with no rebuild.
 
 macOS one-time install (an hourly [launchd](https://support.apple.com/guide/terminal/script-management-with-launchd-apdc6c1077b-5d5d-4d35-9c19-60f2397b2369/mac) job):
 
@@ -230,7 +254,8 @@ tail -f ~/Library/Logs/macrodashboard-refresh.log
 
 Notes:
 
-- The job pushes to **whatever branch the local clone has checked out** — make sure it matches the branch your cloud trigger deploys.
+- The job only ever pushes to the `snapshots` branch (`SNAPSHOT_BRANCH` in `config.py`) — never to the branch it has checked out, so it can never trigger a deploy.
+- The refresher machine's working tree will show `cache/*.json` as modified — that's by design (they are the live data files). Don't commit them to the code branch; `git restore cache/` any time you want a clean tree.
 - The Mac must be awake for the job to fire (launchd catches up after wake, but not while sleeping). For an always-fresh feed, keep it plugged in with sleep disabled, or run the equivalent cron line (printed by the installer) on any always-on Linux box.
 - Manual one-shot run: `python3 scripts/refresh_snapshots.py --push`
 - Uninstall: `launchctl unload ~/Library/LaunchAgents/com.macrodashboard.refresh.plist && rm ~/Library/LaunchAgents/com.macrodashboard.refresh.plist`

@@ -25,7 +25,8 @@ from cachetools import TTLCache
 from dateutil import parser as dateutil_parser
 
 import config
-from credit_monitor import CreditMonitorFetcher
+from credit_monitor import CreditMonitorFetcher, fetch_remote_snapshot
+from memory_monitor import MemoryMonitorFetcher
 
 # Directory containing cached fallback data (JSON snapshots)
 _CACHE_DIR = Path(__file__).parent / "cache"
@@ -311,7 +312,22 @@ class FedWatchFetcher:
             base_result["source_note"] = "Data scraped via browser. Verify at: " + self.CME_FEDWATCH_URL
             return base_result
 
-        # Approach 3: Load from cached JSON snapshot
+        # Approach 3: published snapshot from the snapshots branch
+        # (refreshed hourly from a residential IP by scripts/refresh_snapshots.py)
+        remote = fetch_remote_snapshot("fedwatch.json")
+        if isinstance(remote, dict) and remote.get("probabilities"):
+            base_result["probabilities"] = remote.get("probabilities")
+            if remote.get("current_rate"):
+                base_result["current_rate"] = remote["current_rate"]
+            if remote.get("meetings"):
+                base_result["meetings"] = remote["meetings"]
+            base_result["source_note"] = remote.get(
+                "source_note",
+                "Data from published snapshot. Verify at: " + self.CME_FEDWATCH_URL,
+            )
+            return base_result
+
+        # Approach 4: Load from cached JSON snapshot
         cached = self._try_cached_fallback()
         if cached:
             base_result["probabilities"] = cached.get("probabilities")
@@ -492,7 +508,14 @@ class TruthSocialFetcher:
         if posts:
             return posts
 
-        # Approach 4: Load from cached JSON snapshot
+        # Approach 4: published snapshot from the snapshots branch
+        # (refreshed hourly from a residential IP by scripts/refresh_snapshots.py)
+        remote = fetch_remote_snapshot("truthsocial.json")
+        if isinstance(remote, list) and remote:
+            logger.info("Loaded Truth Social data from published snapshot (%d posts)", len(remote))
+            return remote[:count]
+
+        # Approach 5: Load from cached JSON snapshot
         posts = self._try_cached_fallback(count)
         if posts:
             return posts
@@ -696,11 +719,13 @@ class DataCache:
         self._fedwatch_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["fedwatch"])
         self._truth_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["truthsocial"])
         self._credit_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["credit"])
+        self._memory_cache: TTLCache = TTLCache(maxsize=1, ttl=config.CACHE_TTL["memory"])
 
         self.fred = FREDFetcher()
         self.fedwatch = FedWatchFetcher()
         self.truth = TruthSocialFetcher()
         self.credit = CreditMonitorFetcher()
+        self.memory = MemoryMonitorFetcher()
 
         # Track last successful fetch times and errors
         self.status: dict[str, Any] = {
@@ -708,6 +733,7 @@ class DataCache:
             "fedwatch": {"last_fetch": None, "error": None},
             "truthsocial": {"last_fetch": None, "error": None},
             "credit": {"last_fetch": None, "error": None},
+            "memory": {"last_fetch": None, "error": None},
         }
 
     # ------------------------------------------------------------------
@@ -800,6 +826,28 @@ class DataCache:
             logger.exception("Failed to refresh credit monitor data")
             with self._lock:
                 self.status["credit"]["error"] = str(exc)
+            return {"error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Memory Spot Monitor
+    # ------------------------------------------------------------------
+    def get_memory(self, force: bool = False) -> dict:
+        with self._lock:
+            if not force and "data" in self._memory_cache:
+                return self._memory_cache["data"]
+        return self.refresh_memory()
+
+    def refresh_memory(self) -> dict:
+        try:
+            data = self.memory.build_snapshot(refresh=True)
+            with self._lock:
+                self._memory_cache["data"] = data
+                self.status["memory"] = {"last_fetch": self._now_iso(), "error": None}
+            return data
+        except Exception as exc:
+            logger.exception("Failed to refresh memory monitor data")
+            with self._lock:
+                self.status["memory"]["error"] = str(exc)
             return {"error": str(exc)}
 
     # ------------------------------------------------------------------

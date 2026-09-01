@@ -49,6 +49,29 @@ _YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 _STOOQ_CSV_URL = "https://stooq.com/q/d/l/"
 
 
+def fetch_remote_snapshot(filename: str):
+    """Fetch a JSON snapshot published on the snapshots branch (see
+    config.SNAPSHOT_REMOTE_BASE). Returns parsed JSON, or None on any
+    failure — callers fall back to their local cache/ copy.
+
+    Lives here (not data_fetchers) so memory_monitor can use it without an
+    import cycle.
+    """
+    base = getattr(config, "SNAPSHOT_REMOTE_BASE", None)
+    if not base:
+        return None
+    url = base.rstrip("/") + "/cache/" + filename
+    try:
+        resp = requests.get(url, headers=_HEADERS, timeout=10)
+        if resp.status_code != 200:
+            logger.info("Remote snapshot %s returned %s", filename, resp.status_code)
+            return None
+        return resp.json()
+    except Exception as exc:
+        logger.info("Remote snapshot fetch failed for %s: %s", filename, exc)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Append-only observation store
 # ---------------------------------------------------------------------------

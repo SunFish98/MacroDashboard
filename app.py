@@ -76,6 +76,11 @@ def _schedule_jobs():
         seconds=config.REFRESH_INTERVALS["credit"],
         id="refresh_credit", replace_existing=True,
     )
+    scheduler.add_job(
+        cache.refresh_memory, "interval",
+        seconds=config.REFRESH_INTERVALS["memory"],
+        id="refresh_memory", replace_existing=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +228,11 @@ def api_credit():
     return jsonify(cache.get_credit())
 
 
+@app.route("/api/memory")
+def api_memory():
+    return jsonify(cache.get_memory())
+
+
 @app.route("/api/status")
 def api_status():
     return jsonify(cache.get_status())
@@ -267,6 +277,7 @@ def _print_banner():
     print(f"    FedWatch  : http://localhost:{config.FLASK_PORT}/api/fedwatch")
     print(f"    Truth Soc : http://localhost:{config.FLASK_PORT}/api/truthsocial")
     print(f"    Credit    : http://localhost:{config.FLASK_PORT}/api/credit")
+    print(f"    Memory    : http://localhost:{config.FLASK_PORT}/api/memory")
     print(f"    Status    : http://localhost:{config.FLASK_PORT}/api/status")
     print()
     print("  Refresh intervals:")
@@ -288,6 +299,7 @@ def _start_background_services():
             ("fedwatch", cache.refresh_fedwatch),
             ("truthsocial", cache.refresh_truthsocial),
             ("credit", cache.refresh_credit),
+            ("memory", cache.refresh_memory),
         ]:
             try:
                 fn()
