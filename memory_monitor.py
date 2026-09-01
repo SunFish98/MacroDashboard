@@ -32,7 +32,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import config
-from credit_monitor import CreditHistoryStore, _HEADERS
+from credit_monitor import CreditHistoryStore, _HEADERS, fetch_remote_snapshot
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -228,6 +228,32 @@ class MemoryMonitorFetcher:
         return out
 
     # ------------------------------------------------------------------
+    def merge_remote_history(self) -> int:
+        """Merge observations published on the snapshots branch into the
+        local store. Cloud disks are ephemeral, so a fresh container only
+        has the committed seed — this merge brings in the history the
+        refresher job has accumulated since. Append-only, so it can never
+        clobber locally scraped points. Returns observations added."""
+        data = fetch_remote_snapshot("memory_history.json")
+        if not isinstance(data, dict):
+            return 0
+        added = 0
+        for sid, obs in (data.get("series") or {}).items():
+            if sid in config.MEMORY_SERIES and isinstance(obs, dict):
+                clean = {}
+                for date, value in obs.items():
+                    try:
+                        v = float(value)
+                    except (TypeError, ValueError):
+                        continue
+                    if self._sanity_ok(sid, v):
+                        clean[date] = v
+                added += self.store.append_observations(sid, clean)
+        if added:
+            logger.info("Merged %d observations from published memory history.", added)
+        return added
+
+    # ------------------------------------------------------------------
     def build_snapshot(self, refresh: bool = True) -> dict:
         """Scrape (optionally), compute signals/alerts, return snapshot.
 
@@ -236,6 +262,10 @@ class MemoryMonitorFetcher:
         """
         notes: list[str] = []
         if refresh:
+            try:
+                self.merge_remote_history()
+            except Exception as exc:
+                logger.warning("Remote memory history merge failed: %s", exc)
             try:
                 prices = self.fetch_spot_prices()
                 if prices:

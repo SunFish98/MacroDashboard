@@ -179,7 +179,7 @@ Tracks DRAM/NAND spot prices as a daily thermometer for the memory cycle. Spot p
 
 **Series** (configured in `MEMORY_SERIES` in `config.py`): DXI index, DDR5 16Gb 4800/5600, NAND 512Gb/256Gb TLC wafers, and legacy 2Gb SLC. All scraped from [dramexchange.com](https://www.dramexchange.com/) (session-average spot; no API key, and DRAMeXchange does not block cloud IPs).
 
-**Storage**: append-only JSON at `cache/memory_history.json`, **committed to git** — unlike the credit history there is no backfill API, so history only survives ephemeral cloud disks if the repo carries it. The `scripts/refresh_snapshots.py` job appends the day's prices and pushes on change. Manual point-in-time entries (e.g. from published price reports):
+**Storage**: append-only JSON at `cache/memory_history.json`. There is no backfill API for spot prices, so history must be carried explicitly: the `scripts/refresh_snapshots.py` job appends the day's prices and publishes the file to the `snapshots` branch, and the app merges that published history at runtime (cloud disks are ephemeral — the committed file is just the seed). Manual point-in-time entries (e.g. from published price reports):
 
 ```bash
 python memory_monitor.py add DDR5_16G 51.60 2026-08-07
@@ -237,7 +237,11 @@ Or simply let the dashboard run — it will automatically use live data when ava
 
 ### Automated snapshot refresh (for cloud deployments)
 
-Cloud IPs are blocked by Truth Social and CME, so a cloud deployment shows the committed snapshots. To keep them fresh automatically, run the refresher on a home machine (residential IP) — it fetches both sources live, writes the snapshots, and commits + pushes **only when a live fetch succeeded and the content changed**. If your cloud host auto-deploys on push (e.g. a Cloud Build trigger), the deployed site then lags the real feeds by at most an hour.
+Cloud IPs are blocked by Truth Social and CME, so a cloud deployment cannot fetch those feeds itself. To keep them fresh, run the refresher on a home machine (residential IP) — it fetches the sources live, writes the snapshot files, and **publishes them to a dedicated `snapshots` branch** (a single force-pushed orphan commit; the branch never grows).
+
+The deployed app fetches those snapshots **at runtime** from `SNAPSHOT_REMOTE_BASE` (default: the repo's raw GitHub URL for the `snapshots` branch, configurable via env var — requires the repo to be public, or point it at any URL you host the files on). The committed files in `cache/` remain as a last-resort fallback when that URL is unreachable.
+
+> **Why not just push to main?** An earlier version of this job committed snapshots to the deployed branch. With a Cloud Build trigger watching that branch, every hourly data update rebuilt and stored a new ~200MB container image — hundreds of images and real Artifact Registry storage/egress charges within weeks, for zero code change. Data updates and deploys must stay decoupled: pushes to `snapshots` match no deploy trigger, and the app picks the data up over HTTP with no rebuild.
 
 macOS one-time install (an hourly [launchd](https://support.apple.com/guide/terminal/script-management-with-launchd-apdc6c1077b-5d5d-4d35-9c19-60f2397b2369/mac) job):
 
@@ -250,7 +254,8 @@ tail -f ~/Library/Logs/macrodashboard-refresh.log
 
 Notes:
 
-- The job pushes to **whatever branch the local clone has checked out** — make sure it matches the branch your cloud trigger deploys.
+- The job only ever pushes to the `snapshots` branch (`SNAPSHOT_BRANCH` in `config.py`) — never to the branch it has checked out, so it can never trigger a deploy.
+- The refresher machine's working tree will show `cache/*.json` as modified — that's by design (they are the live data files). Don't commit them to the code branch; `git restore cache/` any time you want a clean tree.
 - The Mac must be awake for the job to fire (launchd catches up after wake, but not while sleeping). For an always-fresh feed, keep it plugged in with sleep disabled, or run the equivalent cron line (printed by the installer) on any always-on Linux box.
 - Manual one-shot run: `python3 scripts/refresh_snapshots.py --push`
 - Uninstall: `launchctl unload ~/Library/LaunchAgents/com.macrodashboard.refresh.plist && rm ~/Library/LaunchAgents/com.macrodashboard.refresh.plist`

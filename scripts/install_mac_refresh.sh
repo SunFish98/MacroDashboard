@@ -31,7 +31,7 @@ sed -e "s|__REPO_DIR__|$REPO_DIR|g" -e "s|__HOME__|$HOME|g" "$PLIST_SRC" > "$PLI
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 launchctl load "$PLIST_DST"
 
-echo "Installed: refreshes Truth Social + FedWatch snapshots hourly and pushes on change."
-echo "  Branch pushed : $(git -C "$REPO_DIR" branch --show-current) (whatever is checked out here)"
+echo "Installed: refreshes Truth Social + FedWatch + memory-price snapshots hourly."
+echo "  Publishes to  : the 'snapshots' branch only (never the code branch -> never triggers a deploy)"
 echo "  Log file      : ~/Library/Logs/macrodashboard-refresh.log"
 echo "  Run once now  : launchctl start com.macrodashboard.refresh"

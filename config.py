@@ -186,6 +186,21 @@ REFRESH_INTERVALS["memory"] = 3600
 CACHE_TTL["memory"] = 3600
 
 # ---------------------------------------------------------------------------
+# Published data snapshots (data/deploy separation)
+#
+# The refresher job (scripts/refresh_snapshots.py) force-pushes snapshot
+# files as a single orphan commit to SNAPSHOT_BRANCH — never to a deployed
+# code branch, because every push there triggers a container rebuild and
+# hourly rebuilds pile up registry storage + egress cost. The app fetches
+# the latest snapshots at runtime from SNAPSHOT_REMOTE_BASE instead.
+# ---------------------------------------------------------------------------
+SNAPSHOT_BRANCH = "snapshots"
+SNAPSHOT_REMOTE_BASE = os.environ.get(
+    "SNAPSHOT_REMOTE_BASE",
+    "https://raw.githubusercontent.com/SunFish98/MacroDashboard/snapshots/",
+)
+
+# ---------------------------------------------------------------------------
 # US Stock Market Holidays (NYSE / NASDAQ closures)
 # ---------------------------------------------------------------------------
 MARKET_HOLIDAYS = [
